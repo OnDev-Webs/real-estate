@@ -93,7 +93,7 @@ const Dashboard = () => {
         <div className="h-full flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <Link to="/" className="flex items-center space-x-2">
-              <img src="https://res.cloudinary.com/dw7w2at8k/image/upload/v1741631701/jugyahblack.5fadb514_sdcgzu.svg" alt="" />
+            <h4 className="text-black">Real estate</h4>
             </Link>
           </div>
           
@@ -117,6 +117,9 @@ const Dashboard = () => {
               Dashboard
             </Button>
             
+            {(role === "owner" || role === "agent") && (
+              <>
+
             {/* Add Property button now sets the activeTab instead of navigating */}
             <Button
               variant="ghost"
@@ -126,7 +129,8 @@ const Dashboard = () => {
               <Plus className="mr-2 h-5 w-5" />
               Add Property
             </Button>
-            
+            </>
+            )}
             {(role === "buyer" || !user) && (
               <>
                 <Button

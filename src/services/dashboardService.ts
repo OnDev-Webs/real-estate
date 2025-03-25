@@ -1,4 +1,3 @@
-
 import { Property } from "@/lib/data";
 
 const API_URL = "http://localhost:5000";
@@ -51,7 +50,8 @@ export const getDashboardStats = async (): Promise<{
   totalViews: number;
   recentProperties: Property[];
 }> => {
-  const response = await authenticatedRequest("/dashboard/stats");
+  const response = await authenticatedRequest("/properties/dashboard/stats");
+  console.log("Dashboard stats response:", response); // Add logging to help debug
   return response.data;
 };
 

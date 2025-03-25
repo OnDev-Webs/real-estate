@@ -144,9 +144,9 @@ const Header = () => {
           {/* Logo */}
           <Link to="/" className="text-2xl font-bold flex items-center">
             {isTransparent ? (
-              <span className="text-white">Jugyah</span>
+              <span className="text-white">Real estate</span>
             ) : (
-              <span className="text-black">Jugyah</span>
+              <span className="text-black">Real Estate</span>
             )}
           </Link>
           

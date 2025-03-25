@@ -18,7 +18,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
             <Link to="/" className="flex items-center gap-2 mb-6">
-              <img src="https://res.cloudinary.com/dw7w2at8k/image/upload/v1741631498/jugyahwhite.ff1dd762_gmcu0m.svg" alt="Jugyah Logo" className="h-10" />
+            <h2 className="text-white">Real estate</h2>
             </Link>
             <p className="text-gray-400 mb-6">
               The premier real estate platform connecting you with your dream property in Mumbai. Explore listings, connect with agents, and find your perfect home.

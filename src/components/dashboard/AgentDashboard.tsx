@@ -40,12 +40,15 @@ const AgentDashboard = ({ activeTab }: AgentDashboardProps) => {
       try {
         // Fetch dashboard stats
         if (activeTab === "overview") {
+          console.log("Fetching dashboard stats...");
           const dashboardStats = await getDashboardStats();
+          console.log("Received dashboard stats:", dashboardStats);
           setStats(dashboardStats);
         }
         
         // Fetch all properties for properties tab
         const fetchedProperties = await getUserProperties();
+        console.log("Fetched user properties:", fetchedProperties);
         setProperties(fetchedProperties);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);

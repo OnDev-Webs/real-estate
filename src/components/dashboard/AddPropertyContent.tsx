@@ -652,7 +652,7 @@ const AddPropertyContent = () => {
               >
                 {index + 1}
               </div>
-              <span className=" bottom-6 text-xs whitespace-nowrap">
+              <span className=" bottom-6 text-xs ms-3 whitespace-nowrap">
                 {index === 0 ? 'Basic Info' : 
                  index === 1 ? 'Property Details' : 
                  index === 2 ? 'Location' : 'Images'}

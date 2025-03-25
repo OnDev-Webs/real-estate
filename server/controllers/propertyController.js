@@ -11,6 +11,8 @@ cloudinary.config({
   api_secret: "uvZNF4CwDCw62qO9tw9jc0DeYaU"
 });
 
+
+
 // Configure storage
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
@@ -398,4 +400,3 @@ exports.getDashboardStats = async (req, res) => {
     });
   }
 };
-
