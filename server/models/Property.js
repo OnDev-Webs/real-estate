@@ -68,7 +68,7 @@ const PropertySchema = new mongoose.Schema(
       },
       propertyType: {
         type: String,
-        enum: ["apartment", "house", "villa", "land", "commercial"],
+        enum: ["apartment", "house", "villa", "plot", "penthouse"],
         required: [true, "Please specify the property type"],
       },
       status: {

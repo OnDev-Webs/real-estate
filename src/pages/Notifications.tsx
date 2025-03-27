@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,89 +17,106 @@ import {
   CheckCircle,
   Home
 } from "lucide-react";
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: 'message' | 'property' | 'offer' | 'alert' | 'appointment';
-  time: Date;
-  read: boolean;
-  relatedId?: string;
-}
+import {
+  getUserNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification,
+  Notification
+} from "@/services/authService";
+import { useToast } from "@/hooks/use-toast";
 
 const Notifications = () => {
   const navigate = useNavigate();
-  
-  // Mock notifications data
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: "1",
-      title: "New message from Michael Scott",
-      message: "I'll check the availability of that apartment for you.",
-      type: "message",
-      time: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-      read: false,
-      relatedId: "agent-1"
-    },
-    {
-      id: "2",
-      title: "Property viewed",
-      message: "Your listing 'Beach House' has been viewed 10 times today.",
-      type: "property",
-      time: new Date(Date.now() - 1000 * 60 * 60 * 3), // 3 hours ago
-      read: false,
-      relatedId: "property-2"
-    },
-    {
-      id: "3",
-      title: "Offer received",
-      message: "You have received a new offer for 'Mountain Cabin'.",
-      type: "offer",
-      time: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-      read: true,
-      relatedId: "property-3"
-    },
-    {
-      id: "4",
-      title: "Price drop alert",
-      message: "A property you saved has dropped in price by $25,000.",
-      type: "alert",
-      time: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
-      read: true,
-      relatedId: "property-4"
-    },
-    {
-      id: "5",
-      title: "Appointment reminder",
-      message: "You have a property viewing scheduled tomorrow at 2:00 PM.",
-      type: "appointment",
-      time: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3), // 3 days ago
-      read: true,
-      relatedId: "appointment-1"
+  const { toast } = useToast();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch notifications on component mount
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getUserNotifications();
+        // Convert ISO string times to Date objects for display
+        const notificationsWithDates = data.map(notification => ({
+          ...notification,
+          time: new Date(notification.time) 
+        }));
+        setNotifications(notificationsWithDates);
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load notifications. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNotifications();
+  }, [toast]);
+
+  const markAsRead = async (id: string) => {
+    try {
+      await markNotificationAsRead(id);
+      setNotifications(prevNotifications =>
+        prevNotifications.map(notification =>
+          notification.id === id
+            ? { ...notification, read: true }
+            : notification
+        )
+      );
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      toast({
+        title: "Error",
+        description: "Failed to mark notification as read.",
+        variant: "destructive",
+      });
     }
-  ]);
-
-  const markAsRead = (id: string) => {
-    setNotifications(prevNotifications =>
-      prevNotifications.map(notification =>
-        notification.id === id
-          ? { ...notification, read: true }
-          : notification
-      )
-    );
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prevNotifications =>
-      prevNotifications.map(notification => ({ ...notification, read: true }))
-    );
+  const markAllAsRead = async () => {
+    try {
+      await markAllNotificationsAsRead();
+      setNotifications(prevNotifications =>
+        prevNotifications.map(notification => ({ ...notification, read: true }))
+      );
+      toast({
+        title: "Success",
+        description: "All notifications marked as read.",
+      });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      toast({
+        title: "Error",
+        description: "Failed to mark all notifications as read.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const deleteNotification = (id: string) => {
-    setNotifications(prevNotifications =>
-      prevNotifications.filter(notification => notification.id !== id)
-    );
+  const handleDeleteNotification = async (id: string) => {
+    try {
+      await deleteNotification(id);
+      setNotifications(prevNotifications =>
+        prevNotifications.filter(notification => notification.id !== id)
+      );
+      toast({
+        title: "Success",
+        description: "Notification deleted successfully.",
+      });
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete notification.",
+        variant: "destructive",
+      });
+    }
   };
 
   const unreadCount = notifications.filter(notification => !notification.read).length;
@@ -165,109 +182,57 @@ const Notifications = () => {
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardContent className="p-0">
-            <Tabs defaultValue="all" className="w-full">
-              <div className="flex items-center justify-between p-4 border-b">
-                <TabsList>
-                  <TabsTrigger value="all">
-                    All
-                    {notifications.length > 0 && (
-                      <span className="ml-2 bg-gray-200 text-gray-700 rounded-full px-2 py-0.5 text-xs">
-                        {notifications.length}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="unread">
-                    Unread
-                    {unreadCount > 0 && (
-                      <span className="ml-2 bg-estate-primary text-white rounded-full px-2 py-0.5 text-xs">
-                        {unreadCount}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                </TabsList>
-                
-                {unreadCount > 0 && (
-                  <Button variant="ghost" size="sm" onClick={markAllAsRead}>
-                    Mark all as read
-                  </Button>
-                )}
+            {isLoading ? (
+              <div className="flex items-center justify-center p-12">
+                <div className="flex flex-col items-center">
+                  <div className="animate-spin h-10 w-10 border-2 border-estate-primary rounded-full border-t-transparent mb-4"></div>
+                  <p className="text-gray-600">Loading notifications...</p>
+                </div>
               </div>
+            ) : (
+              <Tabs defaultValue="all" className="w-full">
+                <div className="flex items-center justify-between p-4 border-b">
+                  <TabsList>
+                    <TabsTrigger value="all">
+                      All
+                      {notifications.length > 0 && (
+                        <span className="ml-2 bg-gray-200 text-gray-700 rounded-full px-2 py-0.5 text-xs">
+                          {notifications.length}
+                        </span>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="unread">
+                      Unread
+                      {unreadCount > 0 && (
+                        <span className="ml-2 bg-estate-primary text-white rounded-full px-2 py-0.5 text-xs">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  {unreadCount > 0 && (
+                    <Button variant="ghost" size="sm" onClick={markAllAsRead}>
+                      Mark all as read
+                    </Button>
+                  )}
+                </div>
 
-              <TabsContent value="all" className="m-0">
-                {notifications.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <Bell className="h-12 w-12 text-gray-300 mb-4" />
-                    <h3 className="text-gray-700 font-medium mb-2">No notifications</h3>
-                    <p className="text-gray-500 max-w-sm">
-                      You'll receive notifications about messages, property updates, and more.
-                    </p>
-                  </div>
-                ) : (
-                  <ul className="divide-y">
-                    {notifications.map(notification => (
-                      <li 
-                        key={notification.id}
-                        className={`p-4 hover:bg-gray-50 ${!notification.read ? 'bg-blue-50/30' : ''}`}
-                      >
-                        <div className="flex items-start">
-                          <div className="flex-shrink-0 mt-1">
-                            {getNotificationIcon(notification.type)}
-                          </div>
-                          <div 
-                            className="ml-4 flex-1 cursor-pointer"
-                            onClick={() => handleNotificationClick(notification)}
-                          >
-                            <div className="flex justify-between">
-                              <p className={`text-sm font-medium ${!notification.read ? 'text-gray-900' : 'text-gray-700'}`}>
-                                {notification.title}
-                              </p>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-xs text-gray-500">
-                                  {formatNotificationTime(notification.time)}
-                                </span>
-                                {!notification.read && (
-                                  <span className="h-2 w-2 bg-estate-primary rounded-full"></span>
-                                )}
-                              </div>
-                            </div>
-                            <p className="text-sm text-gray-500 mt-1">
-                              {notification.message}
-                            </p>
-                          </div>
-                          <div className="ml-4 flex-shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => deleteNotification(notification.id)}
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </TabsContent>
-
-              <TabsContent value="unread" className="m-0">
-                {unreadCount === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <CheckCircle className="h-12 w-12 text-gray-300 mb-4" />
-                    <h3 className="text-gray-700 font-medium mb-2">All caught up!</h3>
-                    <p className="text-gray-500 max-w-sm">
-                      You have no unread notifications.
-                    </p>
-                  </div>
-                ) : (
-                  <ul className="divide-y">
-                    {notifications
-                      .filter(notification => !notification.read)
-                      .map(notification => (
+                <TabsContent value="all" className="m-0">
+                  {notifications.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <Bell className="h-12 w-12 text-gray-300 mb-4" />
+                      <h3 className="text-gray-700 font-medium mb-2">No notifications</h3>
+                      <p className="text-gray-500 max-w-sm">
+                        You'll receive notifications about messages, property updates, and more.
+                      </p>
+                    </div>
+                  ) : (
+                    <ul className="divide-y">
+                      {notifications.map(notification => (
                         <li 
                           key={notification.id}
-                          className="p-4 hover:bg-gray-50 bg-blue-50/30"
+                          className={`p-4 hover:bg-gray-50 ${!notification.read ? 'bg-blue-50/30' : ''}`}
                         >
                           <div className="flex items-start">
                             <div className="flex-shrink-0 mt-1">
@@ -278,14 +243,16 @@ const Notifications = () => {
                               onClick={() => handleNotificationClick(notification)}
                             >
                               <div className="flex justify-between">
-                                <p className="text-sm font-medium text-gray-900">
+                                <p className={`text-sm font-medium ${!notification.read ? 'text-gray-900' : 'text-gray-700'}`}>
                                   {notification.title}
                                 </p>
                                 <div className="flex items-center space-x-2">
                                   <span className="text-xs text-gray-500">
                                     {formatNotificationTime(notification.time)}
                                   </span>
-                                  <span className="h-2 w-2 bg-estate-primary rounded-full"></span>
+                                  {!notification.read && (
+                                    <span className="h-2 w-2 bg-estate-primary rounded-full"></span>
+                                  )}
                                 </div>
                               </div>
                               <p className="text-sm text-gray-500 mt-1">
@@ -297,7 +264,7 @@ const Notifications = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8"
-                                onClick={() => deleteNotification(notification.id)}
+                                onClick={() => handleDeleteNotification(notification.id)}
                               >
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
@@ -305,10 +272,69 @@ const Notifications = () => {
                           </div>
                         </li>
                       ))}
-                  </ul>
-                )}
-              </TabsContent>
-            </Tabs>
+                    </ul>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="unread" className="m-0">
+                  {unreadCount === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <CheckCircle className="h-12 w-12 text-gray-300 mb-4" />
+                      <h3 className="text-gray-700 font-medium mb-2">All caught up!</h3>
+                      <p className="text-gray-500 max-w-sm">
+                        You have no unread notifications.
+                      </p>
+                    </div>
+                  ) : (
+                    <ul className="divide-y">
+                      {notifications
+                        .filter(notification => !notification.read)
+                        .map(notification => (
+                          <li 
+                            key={notification.id}
+                            className="p-4 hover:bg-gray-50 bg-blue-50/30"
+                          >
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0 mt-1">
+                                {getNotificationIcon(notification.type)}
+                              </div>
+                              <div 
+                                className="ml-4 flex-1 cursor-pointer"
+                                onClick={() => handleNotificationClick(notification)}
+                              >
+                                <div className="flex justify-between">
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {notification.title}
+                                  </p>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-xs text-gray-500">
+                                      {formatNotificationTime(notification.time)}
+                                    </span>
+                                    <span className="h-2 w-2 bg-estate-primary rounded-full"></span>
+                                  </div>
+                                </div>
+                                <p className="text-sm text-gray-500 mt-1">
+                                  {notification.message}
+                                </p>
+                              </div>
+                              <div className="ml-4 flex-shrink-0">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => handleDeleteNotification(notification.id)}
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+                </TabsContent>
+              </Tabs>
+            )}
           </CardContent>
         </Card>
       </div>

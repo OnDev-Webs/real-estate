@@ -1,266 +1,274 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "@/hooks/use-toast";
-import { Save, BellRing, Mail, Lock, Shield, UserRound } from 'lucide-react';
+import { Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { updateUserProfile, updateNotificationPreferences } from "@/services/authService";
+
+const formSchema = z.object({
+  name: z.string().min(2, {
+    message: "Name must be at least 2 characters.",
+  }),
+  email: z.string().email({
+    message: "Please enter a valid email.",
+  }),
+  phone: z.string().optional(),
+  bio: z.string().optional(),
+  emailNotifications: z.boolean().default(true),
+  listings: z.boolean().default(true),
+  messages: z.boolean().default(true),
+});
 
 const SettingsPanel = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("profile");
-  
-  // Form states
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [pushNotifications, setPushNotifications] = useState(true);
-  const [marketingEmails, setMarketingEmails] = useState(false);
-  
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  const { toast } = useToast();
+  const { user, refreshUser } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: user?.name || "",
+      email: user?.email || "",
+      phone: user?.phone || "",
+      bio: user?.bio || "",
+      emailNotifications: user?.preferences?.emailNotifications ?? true,
+      listings: user?.preferences?.listings ?? true,
+      messages: user?.preferences?.messages ?? true,
+    },
+  });
+
+  // Update form when user data changes
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        bio: user.bio || "",
+        emailNotifications: user.preferences?.emailNotifications ?? true,
+        listings: user.preferences?.listings ?? true,
+        messages: user.preferences?.messages ?? true,
+      });
+    }
+  }, [user, form]);
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Split the profile update and notification preferences
+      const profileData = {
+        name: values.name,
+        phone: values.phone,
+        bio: values.bio,
+      };
+      
+      const notificationPrefs = {
+        emailNotifications: values.emailNotifications,
+        listings: values.listings,
+        messages: values.messages,
+      };
+      
+      // Update profile data
+      await updateUserProfile(profileData);
+      
+      // Update notification preferences
+      await updateNotificationPreferences(notificationPrefs);
+      
+      // Refresh user data in context
+      if (refreshUser) {
+        await refreshUser();
+      }
       
       toast({
-        title: "Settings Updated",
-        description: "Your settings have been successfully saved."
+        title: "Profile updated",
+        description: "Your profile information has been updated successfully.",
       });
     } catch (error) {
+      let errorMessage = "Failed to update profile. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to update settings. Please try again.",
-        variant: "destructive"
+        description: errorMessage,
+        variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
-  };
+  }
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case "profile":
-        return (
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input id="name" defaultValue="John Doe" />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input id="email" type="email" defaultValue="john.doe@example.com" />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" defaultValue="+1 (555) 123-4567" />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="bio">Bio</Label>
-              <Textarea 
-                id="bio" 
-                defaultValue="Real estate enthusiast with a passion for finding the perfect home."
-                className="min-h-32"
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-medium">Profile Settings</h3>
+        <p className="text-sm text-gray-500">
+          Update your personal information and preferences
+        </p>
+      </div>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="John Doe" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input placeholder="john@example.com" {...field} readOnly />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="+91 9876543210" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="bio"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Bio</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Tell us a little about yourself"
+                    className="resize-none"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div>
+            <h4 className="text-sm font-medium mb-4">Notification Settings</h4>
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="emailNotifications"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">
+                        Email Notifications
+                      </FormLabel>
+                      <div className="text-sm text-muted-foreground">
+                        Receive emails about your account activity
+                      </div>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="listings"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">
+                        Property Listings
+                      </FormLabel>
+                      <div className="text-sm text-muted-foreground">
+                        Get notified about new property listings
+                      </div>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="messages"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Messages</FormLabel>
+                      <div className="text-sm text-muted-foreground">
+                        Receive notifications about new messages
+                      </div>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
               />
             </div>
           </div>
-        );
-        
-      case "notifications":
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-medium mb-4">Notification Preferences</h3>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Email Notifications</Label>
-                  <p className="text-sm text-gray-500">Receive updates via email</p>
-                </div>
-                <Switch 
-                  checked={emailNotifications} 
-                  onCheckedChange={setEmailNotifications}
-                />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Push Notifications</Label>
-                  <p className="text-sm text-gray-500">Receive notifications on your device</p>
-                </div>
-                <Switch 
-                  checked={pushNotifications} 
-                  onCheckedChange={setPushNotifications} 
-                />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Marketing Emails</Label>
-                  <p className="text-sm text-gray-500">Receive promotional content and offers</p>
-                </div>
-                <Switch 
-                  checked={marketingEmails} 
-                  onCheckedChange={setMarketingEmails} 
-                />
-              </div>
-            </div>
-          </div>
-        );
-        
-      case "security":
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-medium mb-4">Security Settings</h3>
-            
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword">Current Password</Label>
-              <Input id="currentPassword" type="password" />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
-              <Input id="newPassword" type="password" />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <Input id="confirmPassword" type="password" />
-            </div>
-            
-            <div className="pt-4">
-              <Button className="w-full bg-black hover:bg-black/90">Change Password</Button>
-            </div>
-            
-            <div className="pt-4 border-t border-gray-200">
-              <h4 className="text-md font-medium mb-2">Two-Factor Authentication</h4>
-              <p className="text-sm text-gray-500 mb-4">
-                Add an extra layer of security to your account by enabling two-factor authentication.
-              </p>
-              <Button variant="outline" className="w-full">Enable 2FA</Button>
-            </div>
-          </div>
-        );
-        
-      case "privacy":
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-medium mb-4">Privacy Settings</h3>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Profile Visibility</Label>
-                  <p className="text-sm text-gray-500">Make your profile visible to other users</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Contact Information</Label>
-                  <p className="text-sm text-gray-500">Show your contact information publicly</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Location Data</Label>
-                  <p className="text-sm text-gray-500">Allow us to use your location data</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Data Collection</Label>
-                  <p className="text-sm text-gray-500">Allow us to collect usage data to improve services</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-            </div>
-            
-            <div className="pt-4 border-t border-gray-200">
-              <h4 className="text-md font-medium mb-2">Data Management</h4>
-              <p className="text-sm text-gray-500 mb-4">
-                You can download or delete all your data from our platform.
-              </p>
-              <div className="flex gap-4">
-                <Button variant="destructive" className="flex-2">Delete Account</Button>
-              </div>
-            </div>
-          </div>
-        );
-        
-      default:
-        return null;
-    }
-  };
 
-  return (
-    <div className="bg-white rounded-lg shadow-sm">
-      <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x">
-        {/* Settings Navigation */}
-        <nav className="p-4 space-y-1">
-          <h2 className="text-xl font-bold mb-4">Settings</h2>
-          <Button
-            variant="ghost"
-            className={`w-full justify-start ${activeTab === "profile" ? "bg-gray-100" : ""}`}
-            onClick={() => setActiveTab("profile")}
-          >
-            <UserRound className="mr-2 h-5 w-5" />
-            Profile
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            Save Changes
           </Button>
-          <Button
-            variant="ghost"
-            className={`w-full justify-start ${activeTab === "notifications" ? "bg-gray-100" : ""}`}
-            onClick={() => setActiveTab("notifications")}
-          >
-            <BellRing className="mr-2 h-5 w-5" />
-            Notifications
-          </Button>
-          <Button
-            variant="ghost"
-            className={`w-full justify-start ${activeTab === "security" ? "bg-gray-100" : ""}`}
-            onClick={() => setActiveTab("security")}
-          >
-            <Lock className="mr-2 h-5 w-5" />
-            Security
-          </Button>
-          <Button
-            variant="ghost"
-            className={`w-full justify-start ${activeTab === "privacy" ? "bg-gray-100" : ""}`}
-            onClick={() => setActiveTab("privacy")}
-          >
-            <Shield className="mr-2 h-5 w-5" />
-            Privacy
-          </Button>
-        </nav>
-        
-        {/* Settings Content */}
-        <div className="p-6 col-span-3">
-          <form onSubmit={handleSave}>
-            {renderTabContent()}
-            
-            <div className="mt-8 pt-4 border-t border-gray-200 flex justify-end">
-              <Button 
-                type="submit"
-                className="bg-black hover:bg-black/90"
-                disabled={isLoading}
-              >
-                <Save className="mr-2 h-4 w-4" />
-                {isLoading ? "Saving..." : "Save Changes"}
-              </Button>
-            </div>
-          </form>
-        </div>
-      </div>
+        </form>
+      </Form>
     </div>
   );
 };

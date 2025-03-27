@@ -6,7 +6,10 @@ const {
   register,
   login,
   getMe,
-  oauthSuccess
+  oauthSuccess,
+  updateProfile,
+  updatePassword,
+  updateNotificationPreferences
 } = require("../controllers/authController");
 const { protect } = require("../middlewares/auth");
 
@@ -14,6 +17,11 @@ const { protect } = require("../middlewares/auth");
 router.post("/register", register);
 router.post("/login", login);
 router.get("/me", protect, getMe);
+
+// Profile management routes
+router.put("/profile", protect, updateProfile);
+router.put("/password", protect, updatePassword);
+router.put("/notification-preferences", protect, updateNotificationPreferences);
 
 // Google OAuth routes
 router.get(

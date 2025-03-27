@@ -37,9 +37,50 @@ const UserSchema = new mongoose.Schema(
     phone: {
       type: String,
     },
-    description: {
+    bio: {
       type: String,
     },
+    address: {
+      type: String,
+    },
+    city: {
+      type: String,
+    },
+    state: {
+      type: String,
+    },
+    zipCode: {
+      type: String,
+    },
+    country: {
+      type: String,
+    },
+    company: {
+      type: String,
+    },
+    website: {
+      type: String,
+    },
+    socialLinks: {
+      facebook: { type: String },
+      twitter: { type: String },
+      linkedin: { type: String },
+      instagram: { type: String }
+    },
+    preferences: {
+      emailNotifications: {
+        type: Boolean,
+        default: true
+      },
+      listings: {
+        type: Boolean,
+        default: true
+      },
+      messages: {
+        type: Boolean,
+        default: true
+      }
+    }
   },
   { timestamps: true }
 );

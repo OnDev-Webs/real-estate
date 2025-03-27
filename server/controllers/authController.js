@@ -1,6 +1,7 @@
 
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const bcrypt = require("bcryptjs");
 
 // Helper function to create JWT token
 const createToken = (user) => {
@@ -39,7 +40,16 @@ const sendTokenResponse = (user, res) => {
       role: userObject.role,
       avatar: userObject.avatar,
       phone: userObject.phone,
-      description: userObject.description,
+      bio: userObject.bio,
+      address: userObject.address,
+      city: userObject.city,
+      state: userObject.state,
+      zipCode: userObject.zipCode,
+      country: userObject.country,
+      company: userObject.company,
+      website: userObject.website,
+      socialLinks: userObject.socialLinks,
+      preferences: userObject.preferences
     },
   });
 };
@@ -138,7 +148,16 @@ exports.getMe = async (req, res) => {
         role: user.role,
         avatar: user.avatar,
         phone: user.phone,
-        description: user.description,
+        bio: user.bio,
+        address: user.address,
+        city: user.city,
+        state: user.state,
+        zipCode: user.zipCode,
+        country: user.country,
+        company: user.company,
+        website: user.website,
+        socialLinks: user.socialLinks,
+        preferences: user.preferences
       },
     });
   } catch (error) {
@@ -147,6 +166,151 @@ exports.getMe = async (req, res) => {
       success: false,
       message: "Server error",
       error: error.message,
+    });
+  }
+};
+
+// @desc    Update user profile
+// @route   PUT /auth/profile
+// @access  Private
+exports.updateProfile = async (req, res) => {
+  try {
+    const allowedFields = [
+      'name', 'phone', 'bio', 'address', 'city', 'state', 
+      'zipCode', 'country', 'company', 'website', 'socialLinks', 'avatar'
+    ];
+    
+    // Filter out fields that are not allowed to be updated
+    const updateData = {};
+    Object.keys(req.body).forEach(key => {
+      if (allowedFields.includes(key)) {
+        updateData[key] = req.body[key];
+      }
+    });
+    
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+        phone: user.phone,
+        bio: user.bio,
+        address: user.address,
+        city: user.city,
+        state: user.state,
+        zipCode: user.zipCode,
+        country: user.country,
+        company: user.company,
+        website: user.website,
+        socialLinks: user.socialLinks,
+        preferences: user.preferences
+      }
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+// @desc    Update user password
+// @route   PUT /auth/password
+// @access  Private
+exports.updatePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide current and new password"
+      });
+    }
+    
+    const user = await User.findById(req.user.id);
+    
+    // Check if current password matches
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect"
+      });
+    }
+    
+    // Update password
+    user.password = newPassword;
+    await user.save();
+    
+    res.status(200).json({
+      success: true,
+      message: "Password updated successfully"
+    });
+  } catch (error) {
+    console.error("Update password error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+// @desc    Update notification preferences
+// @route   PUT /auth/notification-preferences
+// @access  Private
+exports.updateNotificationPreferences = async (req, res) => {
+  try {
+    const { emailNotifications, listings, messages } = req.body;
+    
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Update preferences
+    user.preferences = {
+      emailNotifications: emailNotifications !== undefined ? emailNotifications : user.preferences?.emailNotifications,
+      listings: listings !== undefined ? listings : user.preferences?.listings,
+      messages: messages !== undefined ? messages : user.preferences?.messages
+    };
+    
+    await user.save();
+    
+    res.status(200).json({
+      success: true,
+      message: "Notification preferences updated successfully",
+      preferences: user.preferences
+    });
+  } catch (error) {
+    console.error("Update notification preferences error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
     });
   }
 };

@@ -6,12 +6,10 @@ const path = require('path');
 
 // Configure Cloudinary
 cloudinary.config({
-  cloud_name: "ddprm5mb0",
-  api_key: "928433399422473",
-  api_secret: "uvZNF4CwDCw62qO9tw9jc0DeYaU"
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
-
-
 
 // Configure storage
 const storage = new CloudinaryStorage({
