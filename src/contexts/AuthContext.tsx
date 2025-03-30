@@ -8,7 +8,10 @@ import {
   logoutUser, 
   getCurrentUser, 
   isAuthenticated,
-  fetchUserDetails
+  fetchUserDetails,
+  toggleFavoriteProperty,
+  getFavorites,
+  toggleShareProfile
 } from "@/services/authService";
 
 export type UserRole = "owner" | "agent" | "buyer" | "admin";
@@ -35,6 +38,13 @@ export interface User {
     linkedin?: string;
     instagram?: string;
   };
+  preferences?: {
+    emailNotifications?: boolean;
+    listings?: boolean;
+    messages?: boolean;
+    shareProfile?: boolean;
+  };
+  favorites?: string[];
   memberSince?: string;
 }
 
@@ -46,6 +56,10 @@ type AuthContextType = {
   register: (email: string, password: string, name: string, role: UserRole) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  toggleFavorite: (propertyId: string) => Promise<void>;
+  isFavorite: (propertyId: string) => boolean;
+  setShareProfile: (share: boolean) => Promise<void>;
+  userFavorites: string[];
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -61,6 +75,7 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userFavorites, setUserFavorites] = useState<string[]>([]);
   const navigate = useNavigate();
 
   // Check for existing session on mount using JWT
@@ -76,6 +91,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
               const updatedUser = await fetchUserDetails();
               setUser(updatedUser);
+              
+              // Fetch user favorites
+              const favorites = await getFavorites();
+              setUserFavorites(favorites);
             } catch (error) {
               console.error("Could not refresh user data:", error);
               // If refresh fails, log the user out
@@ -102,6 +121,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { user: loggedInUser } = await loginUser(email, password);
       setUser(loggedInUser);
+      
+      // Fetch user favorites after login
+      const favorites = await getFavorites();
+      setUserFavorites(favorites);
       
       toast({
         title: "Success!",
@@ -151,6 +174,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const updatedUser = await fetchUserDetails();
       setUser(updatedUser);
+      
+      // Refresh favorites
+      const favorites = await getFavorites();
+      setUserFavorites(favorites);
     } catch (error) {
       console.error("Failed to refresh user:", error);
       // If refresh fails, log the user out
@@ -163,6 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     logoutUser();
     setUser(null);
+    setUserFavorites([]);
     
     toast({
       title: "Logged out",
@@ -170,6 +198,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     
     navigate("/");
+  };
+  
+  const toggleFavorite = async (propertyId: string) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please login to save properties to favorites",
+        variant: "destructive"
+      });
+      navigate("/login");
+      return;
+    }
+    
+    try {
+      await toggleFavoriteProperty(propertyId);
+      // Update favorites list
+      const favorites = await getFavorites();
+      setUserFavorites(favorites);
+      
+      const isFav = favorites.includes(propertyId);
+      toast({
+        title: isFav ? "Property saved" : "Property removed",
+        description: isFav 
+          ? "Property has been added to your favorites" 
+          : "Property has been removed from your favorites"
+      });
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update favorites. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const isFavorite = (propertyId: string): boolean => {
+    return userFavorites.includes(propertyId);
+  };
+  
+  const setShareProfile = async (share: boolean) => {
+    try {
+      await toggleShareProfile(share);
+      // Update user with new preference
+      await refreshUser();
+      
+      toast({
+        title: "Preference updated",
+        description: share 
+          ? "Your profile is now visible to property owners" 
+          : "Your profile is now hidden from property owners"
+      });
+    } catch (error) {
+      console.error("Error updating sharing preference:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update preference. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -182,6 +270,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         refreshUser,
+        toggleFavorite,
+        isFavorite,
+        setShareProfile,
+        userFavorites
       }}
     >
       {children}

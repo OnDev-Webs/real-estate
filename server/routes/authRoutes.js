@@ -9,7 +9,10 @@ const {
   oauthSuccess,
   updateProfile,
   updatePassword,
-  updateNotificationPreferences
+  updateNotificationPreferences,
+  toggleFavoriteProperty,
+  getFavorites,
+  toggleShareProfile
 } = require("../controllers/authController");
 const { protect } = require("../middlewares/auth");
 
@@ -22,6 +25,11 @@ router.get("/me", protect, getMe);
 router.put("/profile", protect, updateProfile);
 router.put("/password", protect, updatePassword);
 router.put("/notification-preferences", protect, updateNotificationPreferences);
+router.put("/share-profile", protect, toggleShareProfile);
+
+// Favorites routes
+router.post("/favorites/:propertyId", protect, toggleFavoriteProperty);
+router.get("/favorites", protect, getFavorites);
 
 // Google OAuth routes
 router.get(

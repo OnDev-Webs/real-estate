@@ -334,3 +334,122 @@ exports.oauthSuccess = (req, res) => {
   
   res.redirect(`${frontendBaseUrl}/?token=${token}`);
 };
+
+// @desc    Toggle favorite property
+// @route   POST /auth/favorites/:propertyId
+// @access  Private
+exports.toggleFavoriteProperty = async (req, res) => {
+  try {
+    const propertyId = req.params.propertyId;
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Initialize favorites array if it doesn't exist
+    if (!user.favorites) {
+      user.favorites = [];
+    }
+
+    // Check if property is already favorited
+    const favoriteIndex = user.favorites.indexOf(propertyId);
+    
+    if (favoriteIndex === -1) {
+      // Add to favorites
+      user.favorites.push(propertyId);
+    } else {
+      // Remove from favorites
+      user.favorites.splice(favoriteIndex, 1);
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: favoriteIndex === -1 ? 'Property added to favorites' : 'Property removed from favorites',
+      favorites: user.favorites
+    });
+  } catch (error) {
+    console.error("Toggle favorite error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get favorite properties
+// @route   GET /auth/favorites
+// @access  Private
+exports.getFavorites = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate('favorites');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      count: user.favorites ? user.favorites.length : 0,
+      favorites: user.favorites || []
+    });
+  } catch (error) {
+    console.error("Get favorites error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+// @desc    Toggle share profile
+// @route   PUT /auth/share-profile
+// @access  Private
+exports.toggleShareProfile = async (req, res) => {
+  try {
+    const { isPublic } = req.body;
+    
+    if (isPublic === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "isPublic field is required"
+      });
+    }
+    
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { 'preferences.isProfilePublic': isPublic },
+      { new: true }
+    ).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: isPublic ? "Profile is now public" : "Profile is now private",
+      isProfilePublic: user.preferences?.isProfilePublic
+    });
+  } catch (error) {
+    console.error("Toggle share profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};

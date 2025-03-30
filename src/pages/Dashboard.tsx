@@ -26,9 +26,13 @@ import AgentDashboard from "@/components/dashboard/AgentDashboard";
 import AdminDashboard from "@/components/dashboard/AdminDashboard";
 import SettingsPanel from "@/components/dashboard/SettingsPanel";
 import AddPropertyContent from "@/components/dashboard/AddPropertyContent";
+import EditPropertyContent from "@/components/dashboard/EditPropertyContent";
 import MessageContent from "@/components/dashboard/MessageContent";
 import NotificationContent from "@/components/dashboard/NotificationContent";
 import ProfileContent from "@/components/dashboard/ProfileContent";
+import { isAuthenticated } from "@/services/utils/apiHelpers";
+import { getNotifications } from "@/services/notificationService";
+import { Badge } from "@/components/ui/badge";
 
 const Dashboard = () => {
   const [searchParams] = useSearchParams();
@@ -36,6 +40,7 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState(tabFromUrl || "overview");
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   
   // Update active tab when URL changes
   useEffect(() => {
@@ -43,6 +48,35 @@ const Dashboard = () => {
       setActiveTab(tabFromUrl);
     }
   }, [tabFromUrl]);
+
+  // Check if user is authenticated
+  useEffect(() => {
+    if (!isAuthenticated() && (activeTab === "add-property" || activeTab === "edit-property")) {
+      navigate('/login');
+    }
+  }, [activeTab, navigate]);
+
+  // Check for unread notifications
+  useEffect(() => {
+    const checkNotifications = async () => {
+      if (!user) return;
+      
+      try {
+        const notifications = await getNotifications();
+        const unreadCount = notifications.filter(notification => !notification.read).length;
+        setUnreadNotifications(unreadCount);
+      } catch (error) {
+        console.error("Error checking notifications:", error);
+      }
+    };
+    
+    checkNotifications();
+    
+    // Set up polling for new notifications
+    const interval = setInterval(checkNotifications, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Default role to buyer if not authenticated
   const role = user?.role || "buyer";
@@ -59,6 +93,8 @@ const Dashboard = () => {
       return <MessageContent />;
     } else if (activeTab === "add-property") {
       return <AddPropertyContent />;
+    } else if (activeTab === "edit-property") {
+      return <EditPropertyContent />;
     }
     
     // Handle role-specific dashboards
@@ -81,6 +117,12 @@ const Dashboard = () => {
   };
 
   const handleTabChange = (tab: string) => {
+    // Check if user needs to be logged in for this tab
+    if ((tab === "add-property" || tab === "edit-property") && !isAuthenticated()) {
+      navigate('/login');
+      return;
+    }
+    
     setActiveTab(tab);
     // Update URL with the new tab
     navigate(`/dashboard?tab=${tab}`);
@@ -213,6 +255,11 @@ const Dashboard = () => {
             >
               <Bell className="mr-2 h-5 w-5" />
               Notifications
+              {unreadNotifications > 0 && (
+                <Badge variant="destructive" className="ml-2">
+                  {unreadNotifications}
+                </Badge>
+              )}
             </Button>
             
             <Button

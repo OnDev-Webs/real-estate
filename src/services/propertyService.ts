@@ -1,193 +1,246 @@
 
+// Import necessary utilities
+import { authenticatedRequest } from "./utils/apiHelpers";
 import { Property } from "@/lib/data";
 
+// Base API URL
 const API_URL = "http://localhost:5000";
 
-// Get token from localStorage
-const getToken = (): string | null => {
-  return localStorage.getItem("authToken");
-};
-
-// Helper for API requests with authentication
-const authenticatedRequest = async (
-  endpoint: string,
-  method: string = "GET",
-  data?: any,
-  isFormData: boolean = false
-) => {
-  const token = getToken();
-  if (!token) {
-    throw new Error("Authentication required");
-  }
-
-  const headers: HeadersInit = {
-    Authorization: `Bearer ${token}`,
-  };
-
-  // Only add Content-Type for non-FormData requests
-  if (!isFormData) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  const config: RequestInit = {
-    method,
-    headers,
-    body: isFormData ? data : data ? JSON.stringify(data) : undefined,
-  };
-
-  const response = await fetch(`${API_URL}${endpoint}`, config);
-
-  if (!response.ok) {
-    try {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `Error: ${response.status}`);
-    } catch (e) {
+/**
+ * Get all properties
+ */
+export const getProperties = async () => {
+  try {
+    const response = await fetch(`${API_URL}/properties`);
+    if (!response.ok) {
       throw new Error(`Error: ${response.status}`);
     }
+    const data = await response.json();
+    return data.properties;
+  } catch (error) {
+    console.error("Error fetching properties:", error);
+    throw error;
   }
-
-  return response.json();
 };
 
-// Upload images to Cloudinary through our backend
+/**
+ * Get property by ID
+ */
+export const getPropertyById = async (id: string) => {
+  try {
+    const response = await fetch(`${API_URL}/properties/${id}`);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.property;
+  } catch (error) {
+    console.error(`Error fetching property ${id}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Get properties by status (for-sale, for-rent, sold, pending)
+ */
+export const getPropertiesByStatus = async (status: string) => {
+  try {
+    const response = await fetch(`${API_URL}/properties/status/${status}`);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.properties;
+  } catch (error) {
+    console.error(`Error fetching ${status} properties:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Add a new property
+ */
+export const addProperty = async (propertyData: any) => {
+  try {
+    const response = await authenticatedRequest(
+      "/properties",
+      "POST",
+      propertyData
+    );
+    return response.property;
+  } catch (error) {
+    console.error("Error adding property:", error);
+    throw error;
+  }
+};
+
+/**
+ * Update an existing property
+ */
+export const updateProperty = async (propertyData: any) => {
+  try {
+    const response = await authenticatedRequest(
+      `/properties/${propertyData.id}`,
+      "PUT",
+      propertyData
+    );
+    return response.property;
+  } catch (error) {
+    console.error("Error updating property:", error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a property
+ */
+export const deleteProperty = async (id: string) => {
+  try {
+    await authenticatedRequest(`/properties/${id}`, "DELETE");
+    return true;
+  } catch (error) {
+    console.error("Error deleting property:", error);
+    throw error;
+  }
+};
+
+/**
+ * Upload property images
+ */
 export const uploadImages = async (images: File[]): Promise<string[]> => {
-  const formData = new FormData();
-  images.forEach((image) => {
-    formData.append("images", image);
-  });
+  try {
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      throw new Error("Authentication required");
+    }
 
-  const response = await authenticatedRequest("/properties/upload", "POST", formData, true);
-  return response.urls; // These will be Cloudinary URLs returned from the backend
+    const formData = new FormData();
+    images.forEach((image) => {
+      formData.append("images", image);
+    });
+
+    const response = await fetch(`${API_URL}/properties/upload`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+      mode: "cors",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.urls;
+  } catch (error) {
+    console.error("Error uploading images:", error);
+    throw error;
+  }
 };
 
-// Add a new property with uploaded image URLs
-export const addProperty = async (propertyData: Partial<Property>): Promise<Property> => {
-  // Ensure the location structure matches what the API expects
-  if (propertyData.location) {
-    // Rename zipCode to zip to match the expected Property type
-    if ('zipCode' in propertyData.location) {
-      const { zipCode, ...rest } = propertyData.location as any;
-      propertyData.location = {
-        ...rest,
-        zip: zipCode,
-      };
+/**
+ * Get properties by user
+ */
+export const getUserProperties = async () => {
+  try {
+    const response = await authenticatedRequest("/properties/user/me");
+    return response.properties;
+  } catch (error) {
+    console.error("Error fetching user properties:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get featured properties
+ */
+export const getFeaturedProperties = async () => {
+  try {
+    const response = await fetch(`${API_URL}/properties?featured=true`);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.properties;
+  } catch (error) {
+    console.error("Error fetching featured properties:", error);
+    throw error;
+  }
+};
+
+/**
+ * Increment property view count
+ */
+export const incrementPropertyViews = async (id: string) => {
+  try {
+    const response = await fetch(`${API_URL}/properties/${id}/view`, {
+      method: "PUT",
+    });
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.views;
+  } catch (error) {
+    console.error("Error incrementing property views:", error);
+    // Don't throw error for view count as it's not critical
+    return null;
+  }
+};
+
+/**
+ * Contact property owner/agent
+ */
+export const contactPropertyOwner = async (id: string, message: string) => {
+  try {
+    const response = await authenticatedRequest(
+      `/properties/${id}/contact`,
+      "POST",
+      { message }
+    );
+    return response;
+  } catch (error) {
+    console.error("Error contacting property owner:", error);
+    throw error;
+  }
+};
+
+/**
+ * Search properties with filters
+ */
+export const searchProperties = async (
+  query: string = "",
+  filters: any = {}
+) => {
+  try {
+    // Build query string
+    const queryParams = new URLSearchParams();
+    
+    if (query) {
+      queryParams.append("query", query);
     }
     
-    // Rename latitude/longitude to lat/lng if needed
-    if ('latitude' in propertyData.location) {
-      const { latitude, longitude, ...rest } = propertyData.location as any;
-      propertyData.location = {
-        ...rest,
-        lat: latitude,
-        lng: longitude,
-      };
-    }
-  }
-
-  // Make sure property data conforms to the expected schema
-  if (!propertyData.features) {
-    propertyData.features = {} as any;
-  }
-  
-  // Ensure yearBuilt is present
-  if (!propertyData.features.yearBuilt) {
-    propertyData.features.yearBuilt = new Date().getFullYear();
-  }
-
-  const response = await authenticatedRequest("/properties", "POST", propertyData);
-  return response.property;
-};
-
-// Get all properties
-export const getAllProperties = async (): Promise<Property[]> => {
-  const response = await fetch(`${API_URL}/properties`);
-  if (!response.ok) {
-    throw new Error("Failed to fetch properties");
-  }
-  const data = await response.json();
-  return data.properties.map((property: any) => {
-    // Ensure each property has an id property for frontend use
-    if (property._id && !property.id) {
-      property.id = property._id;
-    }
-    return property;
-  });
-};
-
-// Get properties by status (for-sale, for-rent, etc.)
-export const getPropertiesByStatus = async (status: string): Promise<Property[]> => {
-  const response = await fetch(`${API_URL}/properties/status/${status}`);
-  if (!response.ok) {
-    throw new Error("Failed to fetch properties");
-  }
-  const data = await response.json();
-  return data.properties.map((property: any) => {
-    // Ensure each property has an id property for frontend use
-    if (property._id && !property.id) {
-      property.id = property._id;
-    }
-    return property;
-  });
-};
-
-// Get property by ID
-export const getPropertyById = async (id: string): Promise<Property> => {
-  const response = await fetch(`${API_URL}/properties/${id}`);
-  if (!response.ok) {
-    throw new Error("Failed to fetch property");
-  }
-  const data = await response.json();
-  // Ensure the property has an id property for frontend use
-  if (data.property._id && !data.property.id) {
-    data.property.id = data.property._id;
-  }
-  return data.property;
-};
-
-// Update a property
-export const updateProperty = async (id: string, propertyData: Partial<Property>): Promise<Property> => {
-  // Apply the same location field conversions as in addProperty
-  if (propertyData.location) {
-    if ('zipCode' in propertyData.location) {
-      const { zipCode, ...rest } = propertyData.location as any;
-      propertyData.location = {
-        ...rest,
-        zip: zipCode,
-      };
+    // Add filters to query params
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        queryParams.append(key, value as string);
+      }
+    });
+    
+    const queryString = queryParams.toString();
+    const url = `${API_URL}/properties/search${queryString ? `?${queryString}` : ""}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
     }
     
-    if ('latitude' in propertyData.location) {
-      const { latitude, longitude, ...rest } = propertyData.location as any;
-      propertyData.location = {
-        ...rest,
-        lat: latitude,
-        lng: longitude,
-      };
-    }
+    const data = await response.json();
+    return data.properties;
+  } catch (error) {
+    console.error("Error searching properties:", error);
+    throw error;
   }
-
-  // Ensure yearBuilt is present
-  if (propertyData.features && !propertyData.features.yearBuilt) {
-    propertyData.features.yearBuilt = new Date().getFullYear();
-  }
-
-  const response = await authenticatedRequest(`/properties/${id}`, "PUT", propertyData);
-  return response.property;
-};
-
-// Delete a property
-export const deleteProperty = async (id: string): Promise<void> => {
-  await authenticatedRequest(`/properties/${id}`, "DELETE");
-};
-
-// Get properties for the current agent
-export const getUserProperties = async (): Promise<Property[]> => {
-  const response = await authenticatedRequest("/properties/user/me");
-  return response.properties.map((property: any) => {
-    // Ensure each property has an id property for frontend use
-    if (property._id && !property.id) {
-      property.id = property._id;
-    }
-    return property;
-  });
 };

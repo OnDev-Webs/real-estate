@@ -1,221 +1,175 @@
-// This is a mock implementation of MongoDB service
-// In a real app, you would use the MongoDB driver or an ODM like Mongoose
 
 import { Property } from "@/lib/data";
 
-// Mock MongoDB service
-class MockMongoDB {
-  private collections: {
-    [key: string]: any[];
-  } = {
-    properties: [],
-    users: [],
-    offers: [],
-    inquiries: []
+// Mock API URL (should match the one in apiHelpers.ts)
+const API_URL = "http://localhost:5000";
+
+/**
+ * Convert API property object to frontend Property type
+ */
+export const mapApiPropertyToFrontend = (apiProperty: any): Property => {
+  return {
+    id: apiProperty._id || apiProperty.id,
+    title: apiProperty.title,
+    description: apiProperty.description,
+    price: apiProperty.price,
+    images: apiProperty.images || [],
+    location: {
+      address: apiProperty.location?.address || '',
+      city: apiProperty.location?.city || '',
+      state: apiProperty.location?.state || '',
+      zip: apiProperty.location?.zip || '',
+      country: apiProperty.location?.country || 'United States',
+      lat: apiProperty.location?.lat || 0,
+      lng: apiProperty.location?.lng || 0
+    },
+    features: {
+      bedrooms: apiProperty.features?.bedrooms || 0,
+      bathrooms: apiProperty.features?.bathrooms || 0,
+      area: apiProperty.features?.area || 0,
+      yearBuilt: apiProperty.features?.yearBuilt || new Date().getFullYear(),
+      propertyType: apiProperty.features?.propertyType || "apartment",
+      status: apiProperty.features?.status || "for-sale",
+      floorPlan: apiProperty.features?.floorPlan || null
+    },
+    agent: {
+      id: apiProperty.agent?.id || '',
+      name: apiProperty.agent?.name || 'Agent Name',
+      email: apiProperty.agent?.email || 'agent@example.com',
+      phone: apiProperty.agent?.phone || 'Not provided',
+      image: apiProperty.agent?.image || 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'
+    },
+    amenities: apiProperty.amenities || [],
+    createdAt: apiProperty.createdAt || new Date().toISOString(),
+    views: apiProperty.views || 0,
+    featured: apiProperty.featured || false
   };
+};
 
-  constructor() {
-    // Initialize with local storage data if available
-    const storedProperties = localStorage.getItem('db_properties');
-    if (storedProperties) {
-      this.collections.properties = JSON.parse(storedProperties);
-    }
-    
-    const storedUsers = localStorage.getItem('db_users');
-    if (storedUsers) {
-      this.collections.users = JSON.parse(storedUsers);
-    }
-    
-    const storedOffers = localStorage.getItem('db_offers');
-    if (storedOffers) {
-      this.collections.offers = JSON.parse(storedOffers);
-    }
-    
-    const storedInquiries = localStorage.getItem('db_inquiries');
-    if (storedInquiries) {
-      this.collections.inquiries = JSON.parse(storedInquiries);
-    }
-  }
+/**
+ * Convert frontend Property to API format for creation/update
+ */
+export const mapFrontendPropertyToApi = (property: any) => {
+  return {
+    title: property.title,
+    description: property.description,
+    price: Number(property.price),
+    features: {
+      bedrooms: Number(property.bedrooms),
+      bathrooms: Number(property.bathrooms),
+      area: Number(property.area),
+      yearBuilt: Number(property.yearBuilt || new Date().getFullYear()),
+      propertyType: property.propertyType,
+      status: property.status,
+      floorPlan: property.floorPlan
+    },
+    location: {
+      address: property.address,
+      city: property.city,
+      state: property.state,
+      zip: property.zipCode, // Match the backend field name
+      country: property.country || "United States",
+      lat: parseFloat(property.latitude) || 0,
+      lng: parseFloat(property.longitude) || 0
+    },
+    amenities: getAmenitiesFromFormData(property),
+    images: property.images || []
+  };
+};
 
-  private saveToLocalStorage(collection: string) {
-    localStorage.setItem(`db_${collection}`, JSON.stringify(this.collections[collection]));
-  }
+/**
+ * Extract amenities from form data
+ */
+const getAmenitiesFromFormData = (formData: any) => {
+  const amenities = [];
+  
+  if (formData.hasGarage) amenities.push('Garage');
+  if (formData.hasPool) amenities.push('Swimming Pool');
+  if (formData.isPetFriendly) amenities.push('Pet Friendly');
+  if (formData.hasCentralHeating) amenities.push('Central Heating');
+  if (formData.hasAirConditioning) amenities.push('Air Conditioning');
+  if (formData.hasGarden) amenities.push('Garden');
+  
+  return amenities;
+};
 
-  // Find documents in a collection
-  async find(collection: string, query: any = {}): Promise<any[]> {
-    console.log(`Finding in ${collection} with query:`, query);
-    
-    if (!this.collections[collection]) {
-      return [];
-    }
-    
-    // Very simple query implementation
-    return this.collections[collection].filter(doc => {
-      for (const key in query) {
-        if (query[key] !== doc[key]) {
-          return false;
-        }
-      }
-      return true;
-    });
-  }
-
-  // Find one document
-  async findOne(collection: string, query: any): Promise<any | null> {
-    const results = await this.find(collection, query);
-    return results.length > 0 ? results[0] : null;
-  }
-
-  // Find by ID
-  async findById(collection: string, id: string): Promise<any | null> {
-    return this.findOne(collection, { id });
-  }
-
-  // Insert a document
-  async insertOne(collection: string, document: any): Promise<{ insertedId: string }> {
-    if (!this.collections[collection]) {
-      this.collections[collection] = [];
-    }
-    
-    // Ensure document has an ID
-    if (!document.id) {
-      document.id = `${collection}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    }
-    
-    // Ensure document has timestamps
-    document.createdAt = new Date().toISOString();
-    document.updatedAt = new Date().toISOString();
-    
-    this.collections[collection].push(document);
-    this.saveToLocalStorage(collection);
-    
-    return { insertedId: document.id };
-  }
-
-  // Update a document
-  async updateOne(collection: string, query: any, update: any): Promise<{ modifiedCount: number }> {
-    if (!this.collections[collection]) {
-      return { modifiedCount: 0 };
-    }
-    
-    let modifiedCount = 0;
-    
-    this.collections[collection] = this.collections[collection].map(doc => {
-      let matches = true;
-      
-      // Check if document matches query
-      for (const key in query) {
-        if (query[key] !== doc[key]) {
-          matches = false;
-          break;
-        }
-      }
-      
-      if (matches) {
-        modifiedCount++;
-        // Update document (simple implementation)
-        const updated = { ...doc };
-        
-        // Handle $set operator
-        if (update.$set) {
-          for (const key in update.$set) {
-            updated[key] = update.$set[key];
-          }
-        }
-        
-        // Handle direct updates
-        for (const key in update) {
-          if (key !== '$set' && key !== '$push' && key !== '$pull') {
-            updated[key] = update[key];
-          }
-        }
-        
-        updated.updatedAt = new Date().toISOString();
-        return updated;
-      }
-      
-      return doc;
+/**
+ * Fetch properties from the API
+ */
+export const fetchProperties = async (filters = {}) => {
+  try {
+    // Build query string from filters
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) queryParams.append(key, String(value));
     });
     
-    this.saveToLocalStorage(collection);
+    const queryString = queryParams.toString();
+    const url = `${API_URL}/properties${queryString ? `?${queryString}` : ''}`;
     
-    return { modifiedCount };
-  }
-
-  // Delete a document
-  async deleteOne(collection: string, query: any): Promise<{ deletedCount: number }> {
-    if (!this.collections[collection]) {
-      return { deletedCount: 0 };
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
     }
     
-    const initialLength = this.collections[collection].length;
-    
-    this.collections[collection] = this.collections[collection].filter(doc => {
-      for (const key in query) {
-        if (query[key] !== doc[key]) {
-          return true; // Keep this document
-        }
-      }
-      return false; // Remove this document
-    });
-    
-    this.saveToLocalStorage(collection);
-    
-    const deletedCount = initialLength - this.collections[collection].length;
-    return { deletedCount };
+    const data = await response.json();
+    return data.properties.map(mapApiPropertyToFrontend);
+  } catch (error) {
+    console.error('Error fetching properties:', error);
+    throw error;
   }
-}
-
-// Create and export a singleton instance
-const db = new MockMongoDB();
-export default db;
-
-// Property-specific functions using our mock MongoDB
-export const getAllProperties = async () => {
-  return await db.find('properties');
 };
 
-export const getPropertyById = async (id: string) => {
-  return await db.findById('properties', id);
-};
-
-export const addProperty = async (property: Omit<Property, 'id' | 'createdAt'>) => {
-  return await db.insertOne('properties', property);
-};
-
-export const updateProperty = async (id: string, updates: Partial<Property>) => {
-  return await db.updateOne('properties', { id }, { $set: updates });
-};
-
-export const deleteProperty = async (id: string) => {
-  return await db.deleteOne('properties', { id });
-};
-
-// In a real app with MongoDB, you would use code like this:
-/*
-import { MongoClient, ObjectId } from 'mongodb';
-
-const uri = "mongodb+srv://<username>:<password>@<cluster-url>/<dbname>?retryWrites=true&w=majority";
-const client = new MongoClient(uri);
-
-let db;
-
-export const connectToDatabase = async () => {
-  if (!db) {
-    await client.connect();
-    db = client.db('realEstate');
-    console.log("Connected to MongoDB!");
+/**
+ * Fetch property by ID
+ */
+export const fetchPropertyById = async (id: string) => {
+  try {
+    const response = await fetch(`${API_URL}/properties/${id}`);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return mapApiPropertyToFrontend(data.property);
+  } catch (error) {
+    console.error(`Error fetching property ${id}:`, error);
+    throw error;
   }
-  return db;
 };
 
-export const getAllProperties = async () => {
-  const database = await connectToDatabase();
-  return await database.collection('properties').find({}).toArray();
+/**
+ * Fetch featured properties
+ */
+export const fetchFeaturedProperties = async () => {
+  try {
+    const response = await fetch(`${API_URL}/properties?featured=true`);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.properties.map(mapApiPropertyToFrontend);
+  } catch (error) {
+    console.error('Error fetching featured properties:', error);
+    throw error;
+  }
 };
 
-export const getPropertyById = async (id) => {
-  const database = await connectToDatabase();
-  return await database.collection('properties').findOne({ _id: new ObjectId(id) });
+/**
+ * Fetch properties by city
+ */
+export const fetchPropertiesByCity = async (city: string) => {
+  try {
+    const response = await fetch(`${API_URL}/properties?city=${encodeURIComponent(city)}`);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.properties.map(mapApiPropertyToFrontend);
+  } catch (error) {
+    console.error(`Error fetching properties for city ${city}:`, error);
+    throw error;
+  }
 };
-*/

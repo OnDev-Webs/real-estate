@@ -1,3 +1,4 @@
+
 const Property = require("../models/Property");
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
@@ -20,35 +21,37 @@ const storage = new CloudinaryStorage({
   }
 });
 
-// Configure upload middleware
+// Create multer upload middleware
 const upload = multer({
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
-});
+}).array('images', 10); // Allow up to 10 images
 
 // @desc    Upload property images to Cloudinary
 // @route   POST /properties/upload
 // @access  Private (Only authenticated users)
 exports.uploadImages = async (req, res) => {
   try {
-    // The upload middleware will process the files and add them to req.files
-    upload.array('images', 10)(req, res, async (err) => {
-      if (err) {
-        return res.status(400).json({
-          success: false,
-          message: "Error uploading images",
-          error: err.message
-        });
-      }
-
-      // Extract URLs from the uploaded files
-      const urls = req.files.map(file => file.path);
-
-      res.status(200).json({
-        success: true,
-        message: "Images uploaded successfully",
-        urls: urls
+    // Use the upload middleware as a promise
+    const uploadPromise = new Promise((resolve, reject) => {
+      upload(req, res, (err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
       });
+    });
+
+    await uploadPromise;
+
+    // Extract URLs from the uploaded files
+    const urls = req.files.map(file => file.path);
+
+    res.status(200).json({
+      success: true,
+      message: "Images uploaded successfully",
+      urls: urls
     });
   } catch (error) {
     console.error("Upload images error:", error);
@@ -356,7 +359,7 @@ exports.incrementViews = async (req, res) => {
 };
 
 // @desc    Get dashboard statistics
-// @route   GET /dashboard/stats
+// @route   GET /properties/dashboard/stats
 // @access  Private
 exports.getDashboardStats = async (req, res) => {
   try {
@@ -391,6 +394,128 @@ exports.getDashboardStats = async (req, res) => {
     });
   } catch (error) {
     console.error("Dashboard stats error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+// @desc    Contact property owner
+// @route   POST /properties/:id/contact
+// @access  Private
+exports.contactPropertyOwner = async (req, res) => {
+  try {
+    const property = await Property.findById(req.params.id);
+    
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: "Property not found"
+      });
+    }
+    
+    // Get message from request body
+    const { message } = req.body;
+    
+    if (!message) {
+      return res.status(400).json({
+        success: false,
+        message: "Message is required"
+      });
+    }
+    
+    // Create a notification for the property owner
+    const Notification = require("../models/Notification");
+    await Notification.create({
+      recipient: property.user,
+      sender: req.user.id,
+      property: property._id,
+      type: "contact",
+      title: "New Property Inquiry",
+      message: `${req.user.name} is interested in your property: ${property.title}`,
+      read: false
+    });
+    
+    // TODO: Send email to property owner (in a production application)
+    
+    res.status(200).json({
+      success: true,
+      message: "Your message has been sent to the property owner"
+    });
+  } catch (error) {
+    console.error("Contact property owner error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get active listings
+// @route   GET /properties/dashboard/active-listings
+// @access  Private
+exports.getActiveListings = async (req, res) => {
+  try {
+    const properties = await Property.find({
+      user: req.user.id,
+      "features.status": { $in: ["for-sale", "for-rent"] }
+    }).sort({ createdAt: -1 });
+    
+    res.status(200).json({
+      success: true,
+      count: properties.length,
+      properties
+    });
+  } catch (error) {
+    console.error("Get active listings error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get today's leads (views in last 24 hours)
+// @route   GET /properties/dashboard/today-leads
+// @access  Private
+exports.getTodayLeads = async (req, res) => {
+  try {
+    // Create a date object for 24 hours ago
+    const oneDayAgo = new Date();
+    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+    
+    // Get all notifications for views on user's properties in the last 24 hours
+    const Notification = require("../models/Notification");
+    const notifications = await Notification.find({
+      recipient: req.user.id,
+      type: { $in: ["view", "contact"] },
+      createdAt: { $gte: oneDayAgo }
+    }).populate("sender", "name email phone").populate("property");
+    
+    // Format data for frontend
+    const leads = notifications.map(notification => ({
+      id: notification._id,
+      name: notification.sender ? notification.sender.name : "Anonymous",
+      email: notification.sender ? notification.sender.email : "Not provided",
+      phone: notification.sender ? notification.sender.phone : "Not provided",
+      property: notification.property,
+      message: notification.message,
+      type: notification.type,
+      date: notification.createdAt,
+      status: "new"
+    }));
+    
+    res.status(200).json({
+      success: true,
+      count: leads.length,
+      leads
+    });
+  } catch (error) {
+    console.error("Get today leads error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",

@@ -79,8 +79,16 @@ const UserSchema = new mongoose.Schema(
       messages: {
         type: Boolean,
         default: true
+      },
+      shareProfile: {
+        type: Boolean,
+        default: false
       }
-    }
+    },
+    favorites: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Property'
+    }]
   },
   { timestamps: true }
 );

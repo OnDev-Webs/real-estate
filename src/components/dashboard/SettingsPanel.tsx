@@ -1,274 +1,184 @@
 
-import { useState, useEffect } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { updateUserProfile, updateNotificationPreferences } from "@/services/authService";
-
-const formSchema = z.object({
-  name: z.string().min(2, {
-    message: "Name must be at least 2 characters.",
-  }),
-  email: z.string().email({
-    message: "Please enter a valid email.",
-  }),
-  phone: z.string().optional(),
-  bio: z.string().optional(),
-  emailNotifications: z.boolean().default(true),
-  listings: z.boolean().default(true),
-  messages: z.boolean().default(true),
-});
+import { updateNotificationPreferences } from "@/services/authService";
+import { Bell, Lock, User, Eye } from "lucide-react";
 
 const SettingsPanel = () => {
+  const { user, refreshUser, setShareProfile } = useAuth();
   const { toast } = useToast();
-  const { user, refreshUser } = useAuth();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Set default preferences
+  const [emailNotifications, setEmailNotifications] = useState(
+    user?.preferences?.emailNotifications !== false
+  );
+  const [listingUpdates, setListingUpdates] = useState(
+    user?.preferences?.listings !== false
+  );
+  const [messageNotifications, setMessageNotifications] = useState(
+    user?.preferences?.messages !== false
+  );
+  const [shareProfile, setShareProfileState] = useState(
+    user?.preferences?.shareProfile === true
+  );
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: user?.name || "",
-      email: user?.email || "",
-      phone: user?.phone || "",
-      bio: user?.bio || "",
-      emailNotifications: user?.preferences?.emailNotifications ?? true,
-      listings: user?.preferences?.listings ?? true,
-      messages: user?.preferences?.messages ?? true,
-    },
-  });
-
-  // Update form when user data changes
-  useEffect(() => {
-    if (user) {
-      form.reset({
-        name: user.name || "",
-        email: user.email || "",
-        phone: user.phone || "",
-        bio: user.bio || "",
-        emailNotifications: user.preferences?.emailNotifications ?? true,
-        listings: user.preferences?.listings ?? true,
-        messages: user.preferences?.messages ?? true,
-      });
-    }
-  }, [user, form]);
-
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsSubmitting(true);
-    
+  const handleNotificationChange = async () => {
+    setIsLoading(true);
     try {
-      // Split the profile update and notification preferences
-      const profileData = {
-        name: values.name,
-        phone: values.phone,
-        bio: values.bio,
-      };
+      await updateNotificationPreferences({
+        emailNotifications,
+        listings: listingUpdates,
+        messages: messageNotifications,
+      });
       
-      const notificationPrefs = {
-        emailNotifications: values.emailNotifications,
-        listings: values.listings,
-        messages: values.messages,
-      };
-      
-      // Update profile data
-      await updateUserProfile(profileData);
-      
-      // Update notification preferences
-      await updateNotificationPreferences(notificationPrefs);
-      
-      // Refresh user data in context
-      if (refreshUser) {
-        await refreshUser();
-      }
+      await refreshUser();
       
       toast({
-        title: "Profile updated",
-        description: "Your profile information has been updated successfully.",
+        title: "Settings updated",
+        description: "Your notification preferences have been saved.",
       });
     } catch (error) {
-      let errorMessage = "Failed to update profile. Please try again.";
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
+      console.error("Error updating notification preferences:", error);
       toast({
-        title: "Error",
-        description: errorMessage,
+        title: "Update failed",
+        description: "There was a problem updating your preferences.",
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
-  }
+  };
+  
+  const handleShareProfileChange = async (share: boolean) => {
+    setShareProfileState(share);
+    try {
+      await setShareProfile(share);
+    } catch (error) {
+      // Reset to previous state if failed
+      setShareProfileState(!share);
+      console.error("Error updating profile sharing preference:", error);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium">Profile Settings</h3>
-        <p className="text-sm text-gray-500">
-          Update your personal information and preferences
-        </p>
-      </div>
-
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          <div className="grid gap-4 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="John Doe" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder="john@example.com" {...field} readOnly />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Phone Number</FormLabel>
-                  <FormControl>
-                    <Input placeholder="+91 9876543210" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="bio"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Bio</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Tell us a little about yourself"
-                    className="resize-none"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div>
-            <h4 className="text-sm font-medium mb-4">Notification Settings</h4>
-            <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="emailNotifications"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">
-                        Email Notifications
-                      </FormLabel>
-                      <div className="text-sm text-muted-foreground">
-                        Receive emails about your account activity
-                      </div>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="listings"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">
-                        Property Listings
-                      </FormLabel>
-                      <div className="text-sm text-muted-foreground">
-                        Get notified about new property listings
-                      </div>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="messages"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Messages</FormLabel>
-                      <div className="text-sm text-muted-foreground">
-                        Receive notifications about new messages
-                      </div>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+      <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
+      
+      {/* Notifications Settings */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center">
+            <Bell className="mr-2 h-5 w-5" />
+            Notification Preferences
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="email-notifications" className="text-base">Email Notifications</Label>
+              <p className="text-sm text-gray-500">Receive email updates about your account activity</p>
             </div>
+            <Switch 
+              id="email-notifications" 
+              checked={emailNotifications} 
+              onCheckedChange={setEmailNotifications}
+            />
           </div>
-
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            )}
-            Save Changes
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="listing-updates" className="text-base">Listing Updates</Label>
+              <p className="text-sm text-gray-500">Get notified about new property listings that match your criteria</p>
+            </div>
+            <Switch 
+              id="listing-updates" 
+              checked={listingUpdates} 
+              onCheckedChange={setListingUpdates}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="message-notifications" className="text-base">Message Notifications</Label>
+              <p className="text-sm text-gray-500">Receive notifications when someone sends you a message</p>
+            </div>
+            <Switch 
+              id="message-notifications" 
+              checked={messageNotifications} 
+              onCheckedChange={setMessageNotifications}
+            />
+          </div>
+          
+          <Button 
+            className="mt-4" 
+            onClick={handleNotificationChange}
+            disabled={isLoading}
+          >
+            {isLoading ? "Saving..." : "Save Notification Settings"}
           </Button>
-        </form>
-      </Form>
+        </CardContent>
+      </Card>
+      
+      {/* Privacy Settings */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center">
+            <Eye className="mr-2 h-5 w-5" />
+            Privacy Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="share-profile" className="text-base">Share Profile with Property Owners</Label>
+              <p className="text-sm text-gray-500">
+                Allow property owners to see your profile information when you interact with their listings
+              </p>
+            </div>
+            <Switch 
+              id="share-profile" 
+              checked={shareProfile} 
+              onCheckedChange={handleShareProfileChange}
+            />
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* Security Settings */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center">
+            <Lock className="mr-2 h-5 w-5" />
+            Security Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" asChild>
+            <a href="/dashboard?tab=security">Manage Security Settings</a>
+          </Button>
+        </CardContent>
+      </Card>
+      
+      {/* Account Settings */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center">
+            <User className="mr-2 h-5 w-5" />
+            Account Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" asChild>
+            <a href="/dashboard?tab=profile">Edit Profile Information</a>
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };

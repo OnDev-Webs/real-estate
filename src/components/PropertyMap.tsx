@@ -5,10 +5,15 @@ import Map from 'ol/Map';
 import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
-import Overlay from 'ol/Overlay';
 import { fromLonLat } from 'ol/proj';
 import { Property } from '@/lib/data';
 import { formatPrice } from '@/lib/data';
+import Feature from 'ol/Feature';
+import Point from 'ol/geom/Point';
+import { Icon, Style } from 'ol/style';
+import VectorSource from 'ol/source/Vector';
+import VectorLayer from 'ol/layer/Vector';
+import Overlay from 'ol/Overlay';
 
 interface PropertyMapProps {
   properties: Property[];
@@ -21,7 +26,6 @@ const PropertyMap = ({ properties, selectedPropertyId, onPropertySelect, singleP
   const mapRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<Map | null>(null);
-  const [popup, setPopup] = useState<Overlay | null>(null);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -31,7 +35,7 @@ const PropertyMap = ({ properties, selectedPropertyId, onPropertySelect, singleP
       target: mapRef.current,
       layers: [
         new TileLayer({
-          source: new OSM(),
+          source: new OSM()
         }),
       ],
       view: new View({
@@ -41,33 +45,38 @@ const PropertyMap = ({ properties, selectedPropertyId, onPropertySelect, singleP
     });
 
     // Initialize Popup Overlay
-    const olPopup = new Overlay({
+    const popupOverlay = new Overlay({
       element: popupRef.current!,
       positioning: 'bottom-center',
       stopEvent: false,
       offset: [0, -15],
     });
-    olMap.addOverlay(olPopup);
+    olMap.addOverlay(popupOverlay);
 
     setMap(olMap);
-    setPopup(olPopup);
 
-    return () => olMap.setTarget('');
+    return () => {
+      olMap.setTarget('');
+    };
   }, []);
 
   useEffect(() => {
-    if (!map || !popup || properties.length === 0) return;
+    if (!map || properties.length === 0) return;
 
-    // Remove existing markers
-    popup.setPosition(undefined);
+    // Clear existing vector layers
+    map.getLayers().getArray()
+      .filter(layer => layer instanceof VectorLayer)
+      .forEach(layer => map.removeLayer(layer));
+
+    // Create a vector source for markers
+    const vectorSource = new VectorSource();
     
-    // Clear existing overlays except the popup
-    const overlays = map.getOverlays().getArray().slice();
-    for (let i = 0; i < overlays.length; i++) {
-      if (overlays[i] !== popup) {
-        map.removeOverlay(overlays[i]);
-      }
-    }
+    // Create a vector layer
+    const vectorLayer = new VectorLayer({
+      source: vectorSource
+    });
+    
+    map.addLayer(vectorLayer);
 
     // If single property, zoom to it
     if (singleProperty && properties.length === 1) {
@@ -89,54 +98,74 @@ const PropertyMap = ({ properties, selectedPropertyId, onPropertySelect, singleP
       const propLat = lat || 19.0760;
       const propLng = lng || 72.8777;
 
-      const markerElement = document.createElement('div');
-      markerElement.className = 'marker';
-      markerElement.innerHTML = '📍';
-      markerElement.style.cursor = 'pointer';
-      markerElement.style.fontSize = '24px';
-      
-      // Highlight selected property
-      if (selectedPropertyId && property.id === selectedPropertyId) {
-        markerElement.style.fontSize = '32px';
-        markerElement.style.color = 'red';
-      }
-
-      const markerOverlay = new Overlay({
-        element: markerElement,
-        position: fromLonLat([propLng, propLat]),
-        positioning: 'center-center',
+      // Create marker feature
+      const markerFeature = new Feature({
+        geometry: new Point(fromLonLat([propLng, propLat])),
+        property: property
       });
 
-      map.addOverlay(markerOverlay);
-
-      markerElement.addEventListener('click', () => {
-        popupRef.current!.innerHTML = `
-          <div class="p-2 bg-white rounded shadow-md text-sm">
-            <h3 class="font-bold">${property.title}</h3>
-            <p class="font-medium">${formatPrice(property.price)}</p>
-            <p>${property.location.city}, ${property.location.state}</p>
-          </div>
-        `;
-        popup.setPosition(fromLonLat([propLng, propLat]));
-
-        if (onPropertySelect) {
-          onPropertySelect(property.id);
-        }
+      // Set marker style
+      const markerStyle = new Style({
+        image: new Icon({
+          src: 'https://openlayers.org/en/latest/examples/data/icon.png',
+          scale: selectedPropertyId && property.id === selectedPropertyId ? 1.0 : 0.7,
+        })
       });
-      
+
+      markerFeature.setStyle(markerStyle);
+      vectorSource.addFeature(markerFeature);
+
       // Show popup for selected property
       if (selectedPropertyId && property.id === selectedPropertyId) {
-        popupRef.current!.innerHTML = `
-          <div class="p-2 bg-white rounded shadow-md text-sm">
-            <h3 class="font-bold">${property.title}</h3>
-            <p class="font-medium">${formatPrice(property.price)}</p>
-            <p>${property.location.city}, ${property.location.state}</p>
-          </div>
-        `;
-        popup.setPosition(fromLonLat([propLng, propLat]));
+        const overlay = map.getOverlayById('popup') as Overlay;
+        if (overlay) {
+          popupRef.current!.innerHTML = `
+            <div class="p-2 bg-white rounded shadow-md text-sm">
+              <h3 class="font-bold">${property.title}</h3>
+              <p class="font-medium">${formatPrice(property.price)}</p>
+              <p>${property.location.city}, ${property.location.state}</p>
+            </div>
+          `;
+          overlay.setPosition(fromLonLat([propLng, propLat]));
+        }
       }
     });
-  }, [map, properties, popup, onPropertySelect, selectedPropertyId, singleProperty]);
+
+    // Add click event to map
+    const mapClickHandler = map.on('click', (event) => {
+      map.forEachFeatureAtPixel(event.pixel, (feature) => {
+        const property = (feature as any).get('property');
+        if (property && onPropertySelect) {
+          onPropertySelect(property.id);
+          
+          // Show popup
+          const { lat, lng } = property.location || {};
+          const propLat = lat || 19.0760;
+          const propLng = lng || 72.8777;
+          
+          popupRef.current!.innerHTML = `
+            <div class="p-2 bg-white rounded shadow-md text-sm">
+              <h3 class="font-bold">${property.title}</h3>
+              <p class="font-medium">${formatPrice(property.price)}</p>
+              <p>${property.location.city}, ${property.location.state}</p>
+            </div>
+          `;
+          
+          const overlay = map.getOverlayById('popup') as Overlay;
+          if (overlay) {
+            overlay.setPosition(fromLonLat([propLng, propLat]));
+          }
+          
+          return true; // Stop further processing
+        }
+        return false;
+      });
+    });
+
+    return () => {
+      map.un('click', mapClickHandler.listener);
+    };
+  }, [map, properties, onPropertySelect, selectedPropertyId, singleProperty]);
 
   return (
     <div className="w-full h-full rounded-lg relative" style={{ minHeight: '400px' }}>
