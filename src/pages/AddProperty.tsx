@@ -20,9 +20,9 @@ import {
   MapPin
 } from "lucide-react";
 import { propertyTypes } from "@/lib/data";
+// Fix: Use the correct import
 import { addProperty } from "@/services/propertyService";
 
-// Mumbai and Thane locations from ToggleBuyRent component
 const mumbaiLocations = [
   "Andheri West", "Mahim", "Mira Road", "Mulund", "Vile Parle West",
   "Goregaon West", "Malabar Hill", "Byculla", "Andheri East", "Kurla",
@@ -45,7 +45,6 @@ const naviMumbaiLocations = [
   "Rabale", "Juinagar", "Mansarovar", "Diva"
 ];
 
-// Combine all locations
 const allLocations = [
   { region: "Mumbai", locations: mumbaiLocations },
   { region: "Thane", locations: thaneLocations },
@@ -63,8 +62,11 @@ const AddProperty = () => {
   const [formError, setFormError] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("");
   const [availableLocations, setAvailableLocations] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [uploadError, setUploadError] = useState("");
 
-  // Form states
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
@@ -78,29 +80,25 @@ const AddProperty = () => {
   const [state, setState] = useState("");
   const [zipCode, setZipCode] = useState("");
   const [featured, setFeatured] = useState(false);
-  // Add coordinates for map
-  const [coordinates, setCoordinates] = useState({ lat: 19.0760, lng: 72.8777 }); // Default to Mumbai
+  const [coordinates, setCoordinates] = useState({ lat: 19.0760, lng: 72.8777 });
 
-  // Update available locations when region changes
   useEffect(() => {
     if (selectedRegion) {
       const region = allLocations.find(r => r.region === selectedRegion);
       if (region) {
         setAvailableLocations(region.locations);
-        setCity(""); // Reset city when region changes
+        setCity("");
       }
     } else {
       setAvailableLocations([]);
     }
   }, [selectedRegion]);
 
-  // Check if user has permission to access this page
   useEffect(() => {
     if (!user) {
       return;
     }
     
-    // Only agent or owner can access this page
     if (user.role !== 'agent' && user.role !== 'owner') {
       toast({
         title: "Access Denied",
@@ -114,17 +112,32 @@ const AddProperty = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const fileArray = Array.from(e.target.files);
+      
+      const oversizedFiles = fileArray.filter(file => file.size > 5 * 1024 * 1024);
+      if (oversizedFiles.length > 0) {
+        setUploadError(`${oversizedFiles.length} file(s) exceed the 5MB limit and won't be uploaded.`);
+        const validFiles = fileArray.filter(file => file.size <= 5 * 1024 * 1024);
+        setUploadedFiles(prev => [...prev, ...validFiles]);
+        
+        const newImageUrls = validFiles.map(file => URL.createObjectURL(file));
+        setImages(prev => [...prev, ...newImageUrls]);
+        return;
+      }
+      
+      setUploadedFiles(prev => [...prev, ...fileArray]);
+      
       const newImageUrls = fileArray.map(file => URL.createObjectURL(file));
       setImages(prev => [...prev, ...newImageUrls]);
+      setUploadError("");
     }
   };
 
   const removeImage = (indexToRemove: number) => {
     setImages(images.filter((_, index) => index !== indexToRemove));
+    setUploadedFiles(uploadedFiles.filter((_, index) => index !== indexToRemove));
   };
 
   const nextStep = () => {
-    // Validate current step before proceeding
     if (!validateCurrentStep()) {
       return;
     }
@@ -193,6 +206,49 @@ const AddProperty = () => {
     return true;
   };
 
+  const uploadImagesToCloudinary = async () => {
+    if (uploadedFiles.length === 0) {
+      return [];
+    }
+    
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    try {
+      const formData = new FormData();
+      uploadedFiles.forEach(file => {
+        formData.append('images', file);
+      });
+      
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        throw new Error("Authentication required");
+      }
+      
+      const response = await fetch("http://localhost:5000/properties/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setIsUploading(false);
+      setUploadProgress(100);
+      return data.urls;
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      setUploadError("Failed to upload images. Please try again.");
+      setIsUploading(false);
+      throw error;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -207,6 +263,10 @@ const AddProperty = () => {
         throw new Error("You must be logged in to add a property");
       }
       
+      const imageUrls = await uploadImagesToCloudinary();
+      
+      const formData = new FormData();
+      
       const propertyData = {
         title,
         description,
@@ -216,7 +276,7 @@ const AddProperty = () => {
           city,
           state,
           zip: zipCode,
-          country: "India", // Updated to India
+          country: "India",
           lat: coordinates.lat,
           lng: coordinates.lng
         },
@@ -224,12 +284,12 @@ const AddProperty = () => {
           bedrooms: parseInt(bedrooms),
           bathrooms: parseInt(bathrooms),
           area: parseInt(area),
-          yearBuilt: new Date().getFullYear(), // Default to current year
+          yearBuilt: new Date().getFullYear(),
           propertyType: propertyType as 'apartment' | 'house' | 'villa' | 'plot' | 'penthouse',
           status: status as 'for-sale' | 'for-rent' | 'sold' | 'pending',
         },
-        amenities: [], // Could add this feature later
-        images,
+        amenities: [],
+        images: imageUrls,
         agent: {
           id: user.id,
           name: user.name,
@@ -240,8 +300,9 @@ const AddProperty = () => {
         featured
       };
       
-      // Call the service to add the property
-      await addProperty(propertyData);
+      formData.append('property', JSON.stringify(propertyData));
+      
+      await addProperty(formData);
       
       toast({
         title: "Property Added",
@@ -296,7 +357,7 @@ const AddProperty = () => {
       </div>
     );
   };
-  
+
   const renderStepTitle = () => {
     switch (currentStep) {
       case 1:
@@ -568,9 +629,27 @@ const AddProperty = () => {
               >
                 <Upload className="w-12 h-12 text-gray-400 mb-2" />
                 <p className="mb-1 font-medium">Click to upload images</p>
-                <p className="text-xs text-gray-500">SVG, PNG, JPG or GIF (max. 10MB each)</p>
+                <p className="text-xs text-gray-500">JPG, PNG, or GIF (max. 5MB each)</p>
               </label>
             </div>
+            
+            {uploadError && (
+              <div className="bg-red-50 text-red-700 p-3 rounded-md">
+                {uploadError}
+              </div>
+            )}
+            
+            {isUploading && (
+              <div className="space-y-2">
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div 
+                    className="bg-black h-2.5 rounded-full" 
+                    style={{width: `${uploadProgress}%`}}
+                  ></div>
+                </div>
+                <p className="text-sm text-gray-600 text-center">{uploadProgress}% Uploaded</p>
+              </div>
+            )}
             
             {images.length > 0 && (
               <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -668,7 +747,6 @@ const AddProperty = () => {
                 </div>
               </div>
               
-
               <div><input
         type="file"
         accept="image/*"

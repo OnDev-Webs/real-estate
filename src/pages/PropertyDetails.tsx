@@ -376,14 +376,18 @@ const PropertyDetails = () => {
                     </a>
                   </div>
                   
-                  <Button className="w-full bg-estate-primary hover:bg-estate-primary/90 gap-2">
+                  {/* <Button className="w-full bg-estate-primary hover:bg-estate-primary/90 gap-2">
                     <User size={18} />
                     <span>View Agent Profile</span>
-                  </Button>
+                  </Button> */}
                 </div>
                 
                 {/* Contact Form */}
-                <ContactForm agentName={property.agent.name} propertyTitle={property.title} />
+                <ContactForm
+  agentName={property.agent.name}
+  agentEmail={property.agent.email}
+  propertyTitle={property.title}
+/>
               </div>
             </div>
           </div>

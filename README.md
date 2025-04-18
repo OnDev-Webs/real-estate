@@ -1,310 +1,222 @@
 
-# Jugyah - Mumbai Real Estate Platform
+# Real Estate Platform - Comprehensive Documentation
 
-Jugyah is a comprehensive real estate platform designed specifically for the Mumbai market, allowing users to buy, sell, and rent properties across Mumbai and surrounding areas.
+## System Architecture Overview
 
-## Table of Contents
-- [Overview](#overview)
-- [Features](#features)
-- [Technology Stack](#technology-stack)
-- [Project Structure](#project-structure)
-- [Design System](#design-system)
-- [Data Structure](#data-structure)
-- [Authentication](#authentication)
-- [Installation](#installation)
-- [Development](#development)
-- [Deployment](#deployment)
-- [Future Roadmap](#future-roadmap)
+This platform is built as a full-stack web application with:
+- React/TypeScript frontend
+- Node.js/Express backend
+- MongoDB database
+- JWT authentication
 
-## Overview
+## Setup Instructions
 
-Jugyah provides a complete real estate solution with features tailored for the Indian market, specifically Mumbai. The platform serves different user roles including buyers, property owners, real estate agents, and administrators.
+### Prerequisites
+- Node.js v16+ and npm
+- MongoDB running locally or a cloud instance
+- Cloudinary account for image uploads
 
-## Features
+### Environment Setup
 
-### For Property Seekers
-- Browse property listings with detailed information
-- Search for properties with advanced filters
-- View property details including floor plans
-- Filter by BHK configuration, location, and price
-- Save favorite properties
-- Contact property agents directly
+1. **Backend (.env in server directory)**
+```
+PORT=5000
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
 
-### For Property Owners
-- List properties for sale or rent
-- Manage property listings
-- Track property views and inquiries
-- Connect with potential buyers
+2. **Frontend (.env in root directory)**
+```
+VITE_API_URL=http://localhost:5000/api
+```
 
-### For Agents
-- Manage client portfolios
-- List properties for clients
-- Track leads and inquiries
-- Communicate with potential buyers
+### Installation Steps
 
-### For Administrators
-- Full system oversight
-- User management
-- Property approval workflow
-- Analytics and reporting
+1. **Install backend dependencies**
+```bash
+cd server
+npm install
+```
 
-## Technology Stack
+2. **Install frontend dependencies**
+```bash
+cd ..
+npm install
+```
 
-### Frontend
-- **Framework**: React 18.3.1
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **UI Components**: shadcn/ui (Radix UI-based components)
-- **Icons**: Lucide React
-- **Routing**: React Router Dom 6.26.2
-- **State Management**: React Context API, Tanstack Query
-- **Forms**: React Hook Form with Zod validation
-- **Notifications**: Sonner for toast notifications
+3. **Start the backend server**
+```bash
+cd server
+npm start
+```
+
+4. **Start the frontend development server**
+```bash
+cd ..
+npm run dev
+```
+
+## Common Issues and Solutions
+
+### Authentication Issues
+
+- **Problem**: JWT token issues
+- **Solution**: Check token expiration, ensure localStorage has correct token
+
+```javascript
+// Verify token in localStorage
+const token = localStorage.getItem('authToken');
+console.log('Token exists:', !!token);
+```
+
+### Property Image Upload Issues
+
+- **Problem**: Failed image uploads
+- **Solution**: 
+  1. Verify Cloudinary credentials
+  2. Ensure FormData is properly structured
+  3. Don't set Content-Type header manually for multipart/form-data
+  
+```javascript
+// Correct way to upload images
+const formData = new FormData();
+images.forEach(image => {
+  formData.append('images', image);
+});
+
+const options = {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+  },
+  body: formData
+};
+
+// Don't set Content-Type for multipart/form-data
+```
+
+### Admin Dashboard Not Loading
+
+- **Problem**: Admin routes or authorization issues
+- **Solution**: 
+  1. Verify user role permissions
+  2. Check API endpoint paths
+  3. Ensure proper authorization middleware
+
+```javascript
+// Debug auth state
+console.log('Current user:', localStorage.getItem('user'));
+```
+
+### React Form Context Errors
+
+- **Problem**: "Cannot destructure property 'getFieldState' of 'useFormContext(...)'"
+- **Solution**: 
+  1. Ensure components using Form hooks are within Form provider
+  2. For uncontrolled inputs, don't mix defaultValue and value props
+  3. Replace complex form components with standard HTML inputs
+  
+```jsx
+// Instead of FormField with useFormContext, use simple inputs:
+<div className="space-y-2">
+  <label htmlFor="field">Label</label>
+  <Input 
+    id="field"
+    value={value || ""} 
+    onChange={(e) => updateValue(e.target.value)} 
+  />
+</div>
+```
+
+### Route Protection Issues
+
+- **Problem**: Unauthorized access or redirect loops
+- **Solution**: 
+  1. Check ProtectedRoute and AdminRoute components
+  2. Verify localStorage token and user data persistence
+  3. Ensure correct role checking logic
+
+### API Connection Issues
+
+- **Problem**: "Failed to fetch" errors
+- **Solution**: 
+  1. Check backend server status
+  2. Verify API URL configuration
+  3. Check for CORS issues
+  4. Ensure proper token inclusion in requests
+
+## System Architecture
+
+### Frontend Structure
+- `/src/components/` - Reusable UI components
+- `/src/pages/` - Page components that use route parameters
+- `/src/contexts/` - React context providers
+- `/src/services/` - API service functions
+- `/src/hooks/` - Custom React hooks
+- `/src/utils/` - Utility functions and helpers
+
+### Backend Structure
+- `/server/routes/` - API route definitions
+- `/server/controllers/` - Business logic for routes
+- `/server/models/` - Mongoose data models
+- `/server/middlewares/` - Express middlewares (auth, etc.)
+
+## API Endpoints
 
 ### Authentication
-- **Method**: JWT (JSON Web Token)
-- **User Roles**: Buyer, Owner, Agent, Admin
+- `POST /auth/register` - Register new user
+- `POST /auth/login` - Login user
+- `GET /auth/profile` - Get user profile
 
-### Messaging
-- **Backend**: Firebase
+### Properties
+- `GET /properties` - Get all properties
+- `POST /properties` - Create property
+- `GET /properties/:id` - Get property by ID
+- `PUT /properties/:id` - Update property
+- `DELETE /properties/:id` - Delete property
 
-### Database
-- **Type**: MongoDB
+### Dashboard
+- `GET /properties/dashboard/stats` - Get dashboard statistics
+- `GET /properties/dashboard/active-listings` - Get active listings
+- `GET /properties/dashboard/today-leads` - Get today's leads
 
-## Project Structure
+### Admin
+- `GET /admin/users-with-properties` - Get all users with properties
+- `PUT /admin/users/:userId/role` - Update user role
+- `GET /admin/properties-with-owners` - Get all properties with owners
 
-The project follows a component-based architecture with the following main directories:
+## Debugging Tips
 
-```
-src/
-├── components/       # Reusable UI components
-│   ├── ui/           # Base UI components from shadcn
-│   └── dashboard/    # Dashboard-specific components
-├── contexts/         # React contexts for state management
-├── hooks/            # Custom React hooks
-├── lib/              # Utility functions and data
-├── pages/            # Page components
-├── services/         # API and service integrations
-└── assets/           # Static assets
-```
+1. **Check Console Logs**: Browser console provides valuable error information
+2. **Use Network Tab**: Monitor API requests/responses in browser DevTools
+3. **Verify Environment Variables**: Double check all configuration variables
+4. **Authenticate Requests**: Ensure Bearer tokens are included with requests
+5. **Check Component Props**: Verify all required props are passed correctly
+6. **Validate Form Data**: Log form data before submission to verify structure
 
-## Design System
+## User Roles and Permissions
 
-### Color Scheme
-The website uses a clean, black and white color scheme:
+- **Admin**: Full system access, manage users, properties
+- **Agent**: Create/manage properties, contact owners/buyers
+- **Owner**: List/manage own properties, receive inquiries
+- **Buyer**: Browse properties, save favorites, contact owners/agents
 
-- **Primary**: Black (#000000)
-- **Primary Foreground**: White (#FFFFFF)
-- **Secondary**: Light Gray (#F1F1F1)
-- **Secondary Foreground**: Black (#000000)
-- **Background**: White (#FFFFFF)
-- **Foreground**: Black (#000000)
-- **Accent**: Light Gray (#F1F1F1)
-- **Border**: Light Gray (#E5E7EB)
+## Notification System
 
-### Typography
-- **Primary Font**: Figtree (Google Fonts)
-- **Font Weights**: 300, 400, 500, 600, 700
-- **Base Size**: 16px
-- **Heading Sizes**:
-  - H1: 3rem (48px)
-  - H2: 2.25rem (36px)
-  - H3: 1.5rem (24px)
-  - H4: 1.25rem (20px)
+The notification system is designed to:
+1. Send realtime updates to users
+2. Store notifications in the database
+3. Mark as read/unread
+4. Support various notification types (property inquiries, messages, etc.)
 
-### Components
-The UI is built using shadcn/ui components, which provide a consistent design system. Key components include:
+## Troubleshooting Form Context Errors
 
-- **Buttons**: Primary (black background, white text), Secondary (light gray background, black text), and Outline variants
-- **Cards**: Used for property listings and information panels
-- **Forms**: Consistent styling with labels, validation, and error states
-- **Navigation**: Header with dropdown menus, mobile-responsive sidebar
-- **Property Cards**: Standardized display of property information
+If you encounter React form context errors:
 
-## Data Structure
-
-### Property Model
-Properties are structured with the following key attributes:
-
-```typescript
-interface Property {
-  id: string;
-  title: string;
-  description: string;
-  price: number;
-  location: {
-    address: string;
-    city: string;
-    state: string;
-    zip: string;
-    country: string;
-    lat?: number;
-    lng?: number;
-  };
-  features: {
-    bedrooms: number; // BHK
-    bathrooms: number;
-    area: number; // square feet
-    yearBuilt: number;
-    propertyType: 'apartment' | 'house' | 'villa' | 'plot' | 'penthouse';
-    status: 'for-sale' | 'for-rent' | 'sold' | 'pending';
-    floorPlan?: string; // URL to floor plan image
-  };
-  amenities: string[];
-  images: string[];
-  agent: {
-    id: string;
-    name: string;
-    phone: string;
-    email: string;
-    image: string;
-  };
-  featured: boolean;
-  createdAt: string;
-}
-```
-
-### User Roles
-- **Buyer**: Can browse, favorite, and make inquiries on properties
-- **Owner**: Can list and manage their properties
-- **Agent**: Can list properties and manage client relationships
-- **Admin**: Full system access and management
-
-## Authentication
-
-Authentication is handled through JWT tokens with different permission levels based on user roles. The authentication flow includes:
-
-1. Registration
-2. Login
-3. Token validation
-4. Protected routes
-5. Role-based access control
-
-## Installation
-
-To set up the project locally:
-
-```sh
-# Clone the repository
-git clone <repository-url>
-
-# Navigate to the project directory
-cd jugyah
-
-# Install dependencies
-npm install
-
-# Start the development server
-npm run dev
-```
-
-## Development
-
-### Adding New Properties
-Properties can be added through the "Add Property" page, accessible from the dashboard. The form includes fields for:
-
-- Property details (title, description, price)
-- Location information
-- Features (BHK, bathrooms, area)
-- Amenities
-- Images and floor plans
-
-### Customization
-The UI can be customized through:
-
-- Tailwind configuration (`tailwind.config.ts`)
-- Component styling (individual component files)
-- Global styles (`src/index.css`)
-
-## Deployment
-
-The application can be deployed to various hosting platforms:
-
-1. **Vercel** (recommended)
-2. **Netlify**
-3. **GitHub Pages**
-
-For production builds:
-
-```sh
-npm run build
-```
-
-## Future Roadmap
-
-1. **Phase 1: Core Functionality** ✅
-   - Setup project structure
-   - Create basic UI components
-   - Implement routing
-   - Create mock data
-
-2. **Phase 2: Authentication and User Roles** ✅
-   - Implement JWT authentication
-   - Set up user roles and permissions
-   - Create login and registration pages
-   - Build protected routes
-
-3. **Phase 3: Property Listings** ✅
-   - Implement property listing pages
-   - Create property details view
-   - Add property search functionality
-   - Build property cards and gallery
-
-4. **Phase 4: User Dashboard** ✅
-   - Create role-specific dashboards
-   - Implement property management
-   - Build analytics and statistics
-   - Add saved properties for buyers
-
-5. **Phase 5: Backend Integration** (In Progress)
-   - Connect to MongoDB for data storage
-   - Implement Firebase for messaging
-   - Set up real API endpoints
-   - Replace mock data with real data
-
-6. **Phase 6: Advanced Features** (Planned)
-   - Implement real-time notifications
-   - Add payment processing
-   - Create advanced search filters
-   - Build appointment scheduling
-   - Add map integration for property locations
-
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+1. Check component hierarchy - form components must be within `<Form>` context
+2. Don't mix controlled and uncontrolled inputs (avoid setting both `value` and `defaultValue`)
+3. Use standard HTML form elements instead of form context when appropriate
+4. Ensure proper dependencies are installed (`react-hook-form` and its dependencies)

@@ -1,57 +1,58 @@
+
 const express = require("express");
-const dotenv = require("dotenv");
 const cors = require("cors");
-const morgan = require("morgan");
+const session = require("express-session");
 const passport = require("passport");
 const cookieParser = require("cookie-parser");
+const path = require("path");
 const connectDB = require("./config/db");
+const routes = require("./routes/index");
+require("dotenv").config();
 
-// Load environment variables
-dotenv.config();
+// Initialize express
+const app = express();
 
 // Connect to database
 connectDB();
 
-// Initialize Express
-const app = express();
-
-// Middleware
+// Init middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(cors());
-app.use(morgan("dev"));
+// If using Express + cors
+app.use(cors({
+  origin: "http://localhost:8080", // frontend origin
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 
-// Initialize Passport
+// Initialize passport and session
+app.use(
+  session({
+    secret: process.env.JWT_SECRET,
+    resave: false,
+    saveUninitialized: false,
+  })
+);
 app.use(passport.initialize());
-require("./config/passport");
+app.use(passport.session());
 
-// Import routes
-const authRoutes = require("./routes/authRoutes");
-const propertyRoutes = require("./routes/propertyRoutes");
+// Require passport config
+require("./config/passport")(passport);
 
-// Mount routes
-app.use("/auth", authRoutes);
-app.use("/properties", propertyRoutes);
+// Define routes
+app.use("/", routes);
 
-// Base route
-app.get("/", (req, res) => {
-  res.send("API is running");
-});
-
-// Error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    success: false,
-    message: "Server Error",
-    error: process.env.NODE_ENV === "development" ? err.message : undefined,
+// Serve static assets in production
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "../build")));
+  app.get("*", (req, res) => {
+    res.sendFile(path.resolve(__dirname, "../", "build", "index.html"));
   });
-});
+}
+
+// PORT
+const PORT = process.env.PORT || 5000;
 
 // Start server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-module.exports = app;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

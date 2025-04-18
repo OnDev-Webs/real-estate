@@ -1,7 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getUserPropertyLeads } from "@/services/propertyService";
+import { isToday } from 'date-fns';
 import { 
   Home, 
   Plus, 
@@ -38,24 +41,55 @@ const OwnerDashboard = ({ activeTab }: OwnerDashboardProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
+  const [leads, setLeads] = useState<any[]>([]);
+
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       setIsLoading(true);
       try {
-        // Fetch dashboard stats
-        if (activeTab === "overview") {
-          const dashboardStats = await getDashboardStats();
-          setStats(dashboardStats);
-          
-          // Fetch today's leads for enhanced analytics
-          const leads = await fetch('/api/leads/today').then(res => res.json()).catch(() => []);
-          setTodayLeads(leads);
-        }
-        
-        // Fetch properties
+        // Fetch properties first, which should work for all roles
         const userProperties = await getUserProperties();
         setProperties(userProperties);
+        
+        // Attempt to fetch dashboard stats
+        if (activeTab === "overview") {
+          try {
+            const dashboardStats = await getDashboardStats();
+            setStats(dashboardStats);
+            
+            // Set default stats if the API doesn't return what we expect
+            if (!dashboardStats || typeof dashboardStats !== 'object') {
+              setStats({
+                totalProperties: userProperties.length,
+                activeProperties: userProperties.filter(p => 
+                  p.features?.status === "for-sale" || p.features?.status === "for-rent"
+                ).length,
+                totalViews: userProperties.reduce((sum, p) => sum + (p.views || 0), 0),
+                recentProperties: userProperties.slice(0, 5)
+              });
+            }
+            
+            // Fetch today's leads
+            try {
+              const leads = await fetch('/api/leads/today').then(res => res.json());
+              setTodayLeads(leads || []);
+            } catch {
+              setTodayLeads([]);
+            }
+          } catch (error) {
+            console.error("Error fetching stats:", error);
+            // Fallback to using the properties we already have for stats
+            setStats({
+              totalProperties: userProperties.length,
+              activeProperties: userProperties.filter(p => 
+                p.features?.status === "for-sale" || p.features?.status === "for-rent"
+              ).length,
+              totalViews: userProperties.reduce((sum, p) => sum + (p.views || 0), 0),
+              recentProperties: userProperties.slice(0, 5)
+            });
+          }
+        }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
         toast({
@@ -63,6 +97,7 @@ const OwnerDashboard = ({ activeTab }: OwnerDashboardProps) => {
           description: "Failed to load your dashboard data. Please try again later.",
           variant: "destructive"
         });
+        setProperties([]);
       } finally {
         setIsLoading(false);
       }
@@ -70,6 +105,32 @@ const OwnerDashboard = ({ activeTab }: OwnerDashboardProps) => {
 
     fetchDashboardData();
   }, [activeTab, toast]);
+
+  useEffect(() => {
+        const fetchData = async () => {
+          setIsLoading(true);
+          try {
+            // Get property leads (views/inquiries)
+            const leadsData = await getUserPropertyLeads();
+            setLeads(leadsData);
+            
+            // Get user properties to show view counts
+            const propertiesData = await getUserProperties();
+            setProperties(propertiesData);
+          } catch (error) {
+            console.error("Error fetching leads:", error);
+            toast({
+              title: "Error",
+              description: "Failed to load client leads. Please try again later.",
+              variant: "destructive"
+            });
+          } finally {
+            setIsLoading(false);
+          }
+        };
+    
+        fetchData();
+      }, [toast]);
 
   const handleDeleteProperty = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this property?")) {
@@ -170,8 +231,9 @@ const OwnerDashboard = ({ activeTab }: OwnerDashboardProps) => {
             <CardContent>
               <div className="flex items-center justify-between">
                 <div className="text-2xl font-bold">
-                  {isLoading ? "..." : todayLeads.length}
-                </div>
+                {properties.filter(
+                (property) => property.updatedAt && isToday(new Date(property.updatedAt))
+              ).length}                    </div>
                 <UserPlus className="h-8 w-8 text-purple-500" />
               </div>
               {!isLoading && (
@@ -215,7 +277,9 @@ const OwnerDashboard = ({ activeTab }: OwnerDashboardProps) => {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">Total views today</span>
-                    <span className="font-medium">{isLoading ? "..." : todayLeads.length}</span>
+                    <span className="font-medium"> {properties.filter(
+                (property) => property.updatedAt && isToday(new Date(property.updatedAt))
+              ).length}    </span>
                   </div>
                 </div>
               </div>

@@ -1,12 +1,11 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
-import { 
-  loginUser, 
-  registerUser, 
-  logoutUser, 
-  getCurrentUser, 
+import {
+  loginUser,
+  registerUser,
+  logoutUser,
+  getCurrentUser,
   isAuthenticated,
   fetchUserDetails,
   toggleFavoriteProperty,
@@ -72,13 +71,16 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+interface AuthProviderProps {
+  children: React.ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [userFavorites, setUserFavorites] = useState<string[]>([]);
   const navigate = useNavigate();
 
-  // Check for existing session on mount using JWT
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -86,18 +88,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const currentUser = getCurrentUser();
           if (currentUser) {
             setUser(currentUser);
-            
-            // Refresh user data from server
+
             try {
               const updatedUser = await fetchUserDetails();
               setUser(updatedUser);
-              
-              // Fetch user favorites
               const favorites = await getFavorites();
               setUserFavorites(favorites);
             } catch (error) {
               console.error("Could not refresh user data:", error);
-              // If refresh fails, log the user out
               logoutUser();
               setUser(null);
             }
@@ -105,33 +103,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error) {
         console.error("Auth check error:", error);
-        // If token is invalid, clear it
         localStorage.removeItem("authToken");
         localStorage.removeItem("user");
       } finally {
         setIsLoading(false);
       }
     };
-    
+
     checkAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const { user: loggedInUser } = await loginUser(email, password);
+      const { user: loggedInUser, token } = await loginUser(email, password);
       setUser(loggedInUser);
-      
-      // Fetch user favorites after login
+
+      localStorage.setItem("user", JSON.stringify(loggedInUser));
+      if (token) localStorage.setItem("authToken", token);
+
       const favorites = await getFavorites();
       setUserFavorites(favorites);
-      
+
       toast({
         title: "Success!",
         description: "You have successfully logged in.",
       });
-      
-      navigate("/dashboard");
+
+      if (loggedInUser.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (error) {
       console.error("Login error:", error);
       toast({
@@ -148,15 +151,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (email: string, password: string, name: string, role: UserRole) => {
     setIsLoading(true);
     try {
-      const { user: registeredUser } = await registerUser(email, password, name, role);
+      const { user: registeredUser, token } = await registerUser(email, password, name, role);
       setUser(registeredUser);
-      
+
+      localStorage.setItem("user", JSON.stringify(registeredUser));
+      if (token) localStorage.setItem("authToken", token);
+
       toast({
         title: "Registration successful!",
         description: "Your account has been created.",
       });
-      
-      navigate("/dashboard");
+
+      if (registeredUser.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (error) {
       console.error("Registration error:", error);
       toast({
@@ -174,13 +184,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const updatedUser = await fetchUserDetails();
       setUser(updatedUser);
-      
-      // Refresh favorites
       const favorites = await getFavorites();
       setUserFavorites(favorites);
     } catch (error) {
       console.error("Failed to refresh user:", error);
-      // If refresh fails, log the user out
       logoutUser();
       setUser(null);
       throw error;
@@ -191,15 +198,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logoutUser();
     setUser(null);
     setUserFavorites([]);
-    
+
     toast({
       title: "Logged out",
       description: "You have been successfully logged out.",
     });
-    
+
     navigate("/");
   };
-  
+
   const toggleFavorite = async (propertyId: string) => {
     if (!user) {
       toast({
@@ -210,18 +217,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       navigate("/login");
       return;
     }
-    
+
     try {
       await toggleFavoriteProperty(propertyId);
-      // Update favorites list
       const favorites = await getFavorites();
       setUserFavorites(favorites);
-      
+
       const isFav = favorites.includes(propertyId);
       toast({
         title: isFav ? "Property saved" : "Property removed",
-        description: isFav 
-          ? "Property has been added to your favorites" 
+        description: isFav
+          ? "Property has been added to your favorites"
           : "Property has been removed from your favorites"
       });
     } catch (error) {
@@ -233,21 +239,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
   };
-  
+
   const isFavorite = (propertyId: string): boolean => {
     return userFavorites.includes(propertyId);
   };
-  
+
   const setShareProfile = async (share: boolean) => {
     try {
       await toggleShareProfile(share);
-      // Update user with new preference
       await refreshUser();
-      
       toast({
         title: "Preference updated",
-        description: share 
-          ? "Your profile is now visible to property owners" 
+        description: share
+          ? "Your profile is now visible to property owners"
           : "Your profile is now hidden from property owners"
       });
     } catch (error) {

@@ -1,10 +1,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bed, Bath, Square, MapPin, Heart } from 'lucide-react';
+import { Bed, Bath, Square, MapPin } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
 import { Property, formatPrice } from '@/lib/data';
+import PropertyFavoriteButton from './PropertyFavoriteButton';
 
 interface PropertyCardProps {
   property: Property;
@@ -16,7 +17,6 @@ const PropertyCard = ({ property, index = 0 }: PropertyCardProps) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -42,12 +42,6 @@ const PropertyCard = ({ property, index = 0 }: PropertyCardProps) => {
 
   const handleImageLoad = () => {
     setIsImageLoaded(true);
-  };
-
-  const toggleFavorite = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsFavorite(!isFavorite);
   };
 
   const handleViewDetails = (e: React.MouseEvent) => {
@@ -132,15 +126,13 @@ const PropertyCard = ({ property, index = 0 }: PropertyCardProps) => {
             )}
           </div>
           
-          <button 
-            onClick={toggleFavorite}
-            className={cn(
-              "absolute top-3 right-3 p-2 rounded-full transition-colors",
-              isFavorite ? "bg-black text-white" : "bg-white text-gray-500 hover:text-black"
-            )}
-          >
-            <Heart size={18} fill={isFavorite ? "white" : "none"} />
-          </button>
+          <div className="absolute top-3 right-3">
+            <PropertyFavoriteButton 
+              propertyId={propertyId} 
+              className="p-2"
+              size="sm"
+            />
+          </div>
           
           <div className="absolute bottom-3 left-3">
             <span className="property-badge bg-black/70 text-white">

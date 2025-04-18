@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import Login from '@/pages/Login'; 
 import Register from '@/pages/Register';
 
+
 import { 
   NavigationMenu,
   NavigationMenuContent,
@@ -80,6 +81,8 @@ const Header = () => {
     return `/${route}?q=${queryParam}&city=${cityParam}`;
   };
 
+  const location = useLocation();
+const isAdminDashboard = location.pathname.startsWith('/admin');
   // Extract city from title
   const extractCity = (title: string) => {
     const parts = title.split(" in ");
@@ -468,25 +471,27 @@ const Header = () => {
 
                   </>
                 )}
-                {!isAuthenticated ? (
-  <Button
-    variant="outline"
-    className="w-full border-black ms-3 text-black hover:bg-black hover:text-white gap-2"
-    onClick={() => setIsLoginOpen(true)}
-  >
-    <Plus size={16} />
-    <span>Add Property</span>
-  </Button>
-) : (
-  <Link to="/add-property" className="w-full">
+             {!isAdminDashboard && (
+  !isAuthenticated ? (
     <Button
       variant="outline"
-      className="w-full ms-3 border-black text-black hover:bg-black hover:text-white gap-2"
+      className="w-full border-black text-black hover:bg-black hover:text-white gap-2"
+      onClick={() => setIsLoginOpen(true)}
     >
       <Plus size={16} />
       <span>Add Property</span>
     </Button>
-  </Link>
+  ) : (
+    <Link to="/add-property" className="w-full">
+      <Button
+        variant="outline"
+        className="w-full border-black text-black hover:bg-black hover:text-white gap-2"
+      >
+        <Plus size={16} />
+        <span>Add Property</span>
+      </Button>
+    </Link>
+  )
 )}
 
               </>
@@ -612,9 +617,9 @@ const Header = () => {
                 Loans
               </Link>
               
-              <Link to="/agents" className="py-3 px-4 hover:bg-gray-100 rounded-md">
+              {/* <Link to="/agents" className="py-3 px-4 hover:bg-gray-100 rounded-md">
                 Agents
-              </Link>
+              </Link> */}
               
               <Link to="/contact" className="py-3 px-4 hover:bg-gray-100 rounded-md">
                 Contact
@@ -648,12 +653,12 @@ const Header = () => {
 
                   </>
                 )}
-                <Link to="/add-property" className="w-full">
+                {/* <Link to="/add-property" className="w-full">
                   <Button variant="outline" className="w-full border-black text-black hover:bg-black hover:text-white gap-2">
                     <Plus size={16} />
                     <span>Add Property</span>
                   </Button>
-                </Link>
+                </Link> */}
 
                 {!isAuthenticated ? (
   <Button

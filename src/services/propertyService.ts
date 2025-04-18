@@ -1,105 +1,15 @@
 
-// Import necessary utilities
-import { authenticatedRequest } from "./utils/apiHelpers";
-import { Property } from "@/lib/data";
-
-// Base API URL
-const API_URL = "http://localhost:5000";
+import { authenticatedRequest, publicRequest } from "./utils/apiHelpers";
 
 /**
- * Get all properties
+ * Create a new property
  */
-export const getProperties = async () => {
+export const createProperty = async (propertyData: any) => {
   try {
-    const response = await fetch(`${API_URL}/properties`);
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.properties;
-  } catch (error) {
-    console.error("Error fetching properties:", error);
-    throw error;
-  }
-};
-
-/**
- * Get property by ID
- */
-export const getPropertyById = async (id: string) => {
-  try {
-    const response = await fetch(`${API_URL}/properties/${id}`);
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.property;
-  } catch (error) {
-    console.error(`Error fetching property ${id}:`, error);
-    throw error;
-  }
-};
-
-/**
- * Get properties by status (for-sale, for-rent, sold, pending)
- */
-export const getPropertiesByStatus = async (status: string) => {
-  try {
-    const response = await fetch(`${API_URL}/properties/status/${status}`);
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.properties;
-  } catch (error) {
-    console.error(`Error fetching ${status} properties:`, error);
-    throw error;
-  }
-};
-
-/**
- * Add a new property
- */
-export const addProperty = async (propertyData: any) => {
-  try {
-    const response = await authenticatedRequest(
-      "/properties",
-      "POST",
-      propertyData
-    );
+    const response = await authenticatedRequest('/properties', 'POST', propertyData);
     return response.property;
   } catch (error) {
-    console.error("Error adding property:", error);
-    throw error;
-  }
-};
-
-/**
- * Update an existing property
- */
-export const updateProperty = async (propertyData: any) => {
-  try {
-    const response = await authenticatedRequest(
-      `/properties/${propertyData.id}`,
-      "PUT",
-      propertyData
-    );
-    return response.property;
-  } catch (error) {
-    console.error("Error updating property:", error);
-    throw error;
-  }
-};
-
-/**
- * Delete a property
- */
-export const deleteProperty = async (id: string) => {
-  try {
-    await authenticatedRequest(`/properties/${id}`, "DELETE");
-    return true;
-  } catch (error) {
-    console.error("Error deleting property:", error);
+    console.error('Error creating property:', error);
     throw error;
   }
 };
@@ -107,140 +17,159 @@ export const deleteProperty = async (id: string) => {
 /**
  * Upload property images
  */
-export const uploadImages = async (images: File[]): Promise<string[]> => {
+export const uploadPropertyImages = async (formData: FormData) => {
   try {
-    const token = localStorage.getItem("authToken");
-    if (!token) {
-      throw new Error("Authentication required");
-    }
-
-    const formData = new FormData();
-    images.forEach((image) => {
-      formData.append("images", image);
-    });
-
-    const response = await fetch(`${API_URL}/properties/upload`, {
-      method: "POST",
+    // Create options object for file upload
+    const options = {
+      method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`,
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
       },
-      body: formData,
-      mode: "cors",
-    });
-
+      body: formData
+    };
+    
+    // Remove Content-Type header as it's set automatically with boundary for multipart/form-data
+    delete (options.headers as any)['Content-Type'];
+    
+    // Make direct fetch request without using authenticatedRequest helper
+    const response = await fetch(`http://localhost:5000/properties/upload`, options);
+    
     if (!response.ok) {
       throw new Error(`Error: ${response.status}`);
     }
-
+    
     const data = await response.json();
-    return data.urls;
+    return data.urls || [];
   } catch (error) {
-    console.error("Error uploading images:", error);
+    console.error('Error uploading images:', error);
     throw error;
   }
 };
 
 /**
- * Get properties by user
+ * Get property details
+ */
+export const getPropertyDetails = async (propertyId: string) => {
+  try {
+    const response = await authenticatedRequest(`/properties/${propertyId}`, 'GET');
+    return response.property;
+  } catch (error) {
+    console.error('Error getting property details:', error);
+    throw error;
+  }
+};
+
+// Alias for getPropertyDetails that matches the imported name in other files
+export const getPropertyById = getPropertyDetails;
+
+/**
+ * Update property details
+ */
+export const updateProperty = async (propertyId: string, propertyData: any) => {
+  try {
+    const response = await authenticatedRequest(`/properties/${propertyId}`, 'PUT', propertyData);
+    return response.property;
+  } catch (error) {
+    console.error('Error updating property:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete property
+ */
+export const deleteProperty = async (propertyId: string) => {
+  try {
+    const response = await authenticatedRequest(`/properties/${propertyId}`, 'DELETE');
+    return response;
+  } catch (error) {
+    console.error('Error deleting property:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get user properties
  */
 export const getUserProperties = async () => {
   try {
-    const response = await authenticatedRequest("/properties/user/me");
+    const response = await authenticatedRequest('/properties/user/me', 'GET');
     return response.properties;
   } catch (error) {
-    console.error("Error fetching user properties:", error);
-    throw error;
+    console.error('Error getting user properties:', error);
+    return [];
   }
 };
 
 /**
- * Get featured properties
+ * Get properties by status
  */
-export const getFeaturedProperties = async () => {
+export const getPropertiesByStatus = async (status: string) => {
   try {
-    const response = await fetch(`${API_URL}/properties?featured=true`);
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
+    const response = await publicRequest(`/properties/status/${status}`, 'GET');
+    return response.properties;
+  } catch (error) {
+    console.error(`Error getting ${status} properties:`, error);
+    return [];
+  }
+};
+
+/**
+ * Get all properties
+ */
+export const getAllProperties = async () => {
+  try {
+    // This is a public endpoint so we don't need authentication
+    const response = await fetch(`http://localhost:5000/properties`);
     const data = await response.json();
     return data.properties;
   } catch (error) {
-    console.error("Error fetching featured properties:", error);
-    throw error;
+    console.error('Error getting all properties:', error);
+    return [];
   }
 };
 
 /**
- * Increment property view count
+ * Contact property owner
  */
-export const incrementPropertyViews = async (id: string) => {
+export const contactPropertyOwner = async (propertyId: string, message: string) => {
   try {
-    const response = await fetch(`${API_URL}/properties/${id}/view`, {
-      method: "PUT",
-    });
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.views;
-  } catch (error) {
-    console.error("Error incrementing property views:", error);
-    // Don't throw error for view count as it's not critical
-    return null;
-  }
-};
-
-/**
- * Contact property owner/agent
- */
-export const contactPropertyOwner = async (id: string, message: string) => {
-  try {
-    const response = await authenticatedRequest(
-      `/properties/${id}/contact`,
-      "POST",
-      { message }
-    );
+    const response = await authenticatedRequest(`/properties/${propertyId}/contact`, 'POST', { message });
     return response;
   } catch (error) {
-    console.error("Error contacting property owner:", error);
+    console.error('Error contacting property owner:', error);
     throw error;
   }
 };
 
 /**
- * Search properties with filters
+ * Get agent details by ID
  */
-export const searchProperties = async (
-  query: string = "",
-  filters: any = {}
-) => {
+export const getAgentDetails = async (agentId: string) => {
   try {
-    // Build query string
-    const queryParams = new URLSearchParams();
-    
-    if (query) {
-      queryParams.append("query", query);
-    }
-    
-    // Add filters to query params
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "") {
-        queryParams.append(key, value as string);
-      }
-    });
-    
-    const queryString = queryParams.toString();
-    const url = `${API_URL}/properties/search${queryString ? `?${queryString}` : ""}`;
-    
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return data.properties;
+    const response = await authenticatedRequest(`/users/${agentId}`, 'GET');
+    return response.user;
   } catch (error) {
-    console.error("Error searching properties:", error);
+    console.error('Error getting agent details:', error);
     throw error;
   }
 };
+
+/**
+ * Get property leads for a user
+ */
+export const getUserPropertyLeads = async () => {
+  try {
+    const response = await authenticatedRequest('/properties/dashboard/today-leads', 'GET');
+    return response.leads || [];
+  } catch (error) {
+    console.error('Error getting property leads:', error);
+    return [];
+  }
+};
+
+// Alias for uploadPropertyImages that matches the imported name in other files
+export const uploadImages = uploadPropertyImages;
+
+// Alias for createProperty that matches the imported name in other files
+export const addProperty = createProperty;

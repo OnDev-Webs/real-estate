@@ -1,22 +1,19 @@
+
 import { useEffect } from 'react';
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import FeaturedProperties from "@/components/FeaturedProperties";
+import RecentProperties from "@/components/RecentProperties";
 import Footer from "@/components/Footer";
 import { ArrowRight, Search, Home, Building2, Handshake, Users, Award, CheckCircle2, MapPin } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
-import { getRecentProperties, formatPrice } from '@/lib/data';
-import PropertyCategorySection from '@/components/PropertyCategorySection';
 import FlatsGrid from '@/components/Flatgrid';
-import Sellrent from "@/components/Sellrent"
-import Togglebuyrent from "@/components/Togglebuyrent"
-import { Toggle } from '@/components/ui/toggle';
+import Sellrent from "@/components/Sellrent";
 import TestimonialSection from '@/components/TestimonialSection';
+import PropertyCategorySection from '@/components/PropertyCategorySection';
 
 const Index = () => {
-  const recentProperties = getRecentProperties(3);
-
   useEffect(() => {
     // Initialize animation observer
     const observerOptions = {
@@ -176,91 +173,13 @@ const Index = () => {
       </section>
       
         {/* Recent Properties */}
-        <section className="section bg-white">
-        <div className="container">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-12 animate-on-scroll">
-            <div>
-              <span className="inline-block px-3 py-1 bg-estate-primary/10 text-estate-primary rounded-full mb-2 text-sm font-medium">
-                New Arrivals
-              </span>
-              <h2 className="section-title">Recently Added Properties</h2>
-              <p className="section-subtitle">
-                Be the first to discover our newest listings and find your dream home before anyone else.
-              </p>
-            </div>
-            <Link to="/properties">
-              <Button variant="outline" className="border-estate-primary text-estate-primary hover:bg-estate-primary hover:text-white gap-2">
-                View All Properties
-                <ArrowRight size={16} />
-              </Button>
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-            {recentProperties.map((property, index) => (
-              <div 
-                key={property.id}
-                className="property-card overflow-hidden rounded-xl transition-all duration-500 transform animate-on-scroll hover:shadow-md"
-              >
-                <Link to={`/property/${property.id}`} className="group">
-                  <div className="relative overflow-hidden aspect-[4/3]">
-                    <img 
-                      src={property.images[0]} 
-                      alt={property.title}
-                      className="w-full h-full object-cover transition-transform duration-700 ease-in-out group-hover:scale-110"
-                    />
-                    
-                    <div className="absolute top-3 left-3">
-                      <span className={`tag ${property.features.status === 'for-sale' ? 'bg-estate-primary text-white' : 'bg-estate-secondary text-estate-dark'}`}>
-                        {property.features.status === 'for-sale' ? 'For Sale' : 'For Rent'}
-                      </span>
-                    </div>
-                    
-                    <div className="absolute bottom-3 left-3">
-                      <span className="tag bg-black/70 text-white">
-                        {property.features.propertyType.charAt(0).toUpperCase() + property.features.propertyType.slice(1)}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="p-4">
-                    <div className="flex items-center gap-1 text-estate-gray mb-2">
-                      <MapPin size={16} />
-                      <span className="text-sm truncate">
-                        {property.location.city}, {property.location.state}
-                      </span>
-                    </div>
-                    
-                    <h3 className="text-lg font-semibold mb-2 line-clamp-1 group-hover:text-estate-primary transition-colors">
-                      {property.title}
-                    </h3>
-                    
-                    <p className="text-estate-gray text-sm mb-4 line-clamp-2">
-                      {property.description}
-                    </p>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="font-semibold text-lg text-estate-primary">
-                        {formatPrice(property.price)}
-                      </div>
-                      <Button variant="outline" size="sm" className="text-xs border-estate-primary text-estate-primary hover:bg-estate-primary hover:text-white">
-                        View Details
-                      </Button>
-                    </div>
-                  </div>
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+        <RecentProperties />
 
         <FlatsGrid/>
 
         <Sellrent/>
 
         <TestimonialSection />
-
 
         {/* CTA */}
         <section className="py-20 bg-estate-primary">

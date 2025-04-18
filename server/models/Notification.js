@@ -1,38 +1,13 @@
-
 const mongoose = require("mongoose");
 
 const NotificationSchema = new mongoose.Schema(
   {
-    recipient: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true
-    },
-    sender: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User"
-    },
-    property: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Property"
-    },
-    type: {
-      type: String,
-      enum: ["view", "contact", "favorite", "message", "system"],
-      required: true
-    },
-    title: {
-      type: String,
-      required: true
-    },
-    message: {
-      type: String,
-      required: true
-    },
-    read: {
-      type: Boolean,
-      default: false
-    }
+    title: { type: String, required: true },
+    message: { type: String, required: true },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    type: { type: String, default: "system" },
+    read: { type: Boolean, default: false },
+    property: { type: mongoose.Schema.Types.ObjectId, ref: "Property" }, // Reference to the Property model
   },
   { timestamps: true }
 );

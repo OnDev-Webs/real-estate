@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { DollarSign, MessageSquare, Heart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface PropertyBuyerActionsProps {
   propertyId: string;
@@ -20,12 +21,23 @@ const PropertyBuyerActions: React.FC<PropertyBuyerActionsProps> = ({
   propertyPrice,
 }) => {
   const { toast } = useToast();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, toggleFavorite } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [offerAmount, setOfferAmount] = useState(propertyPrice.toString());
   const [message, setMessage] = useState("");
+  const navigate = useNavigate();
 
   const handleMakeOffer = () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login to make an offer on this property.",
+        variant: "destructive",
+      });
+      navigate('/login', { state: { from: `/property/${propertyId}` } });
+      return;
+    }
+    
     // In a real app, this would connect to a backend API
     toast({
       title: "Offer Submitted",
@@ -35,11 +47,35 @@ const PropertyBuyerActions: React.FC<PropertyBuyerActionsProps> = ({
   };
 
   const handleBuyNow = () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login to purchase this property.",
+        variant: "destructive",
+      });
+      navigate('/login', { state: { from: `/property/${propertyId}` } });
+      return;
+    }
+    
     // In a real app, this would redirect to a payment/checkout flow
     toast({
       title: "Purchase Initiated",
       description: "You'll be redirected to complete your purchase.",
     });
+  };
+
+  const handleSaveProperty = async () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login to save this property to favorites.",
+        variant: "destructive",
+      });
+      navigate('/login', { state: { from: `/property/${propertyId}` } });
+      return;
+    }
+    
+    await toggleFavorite(propertyId);
   };
 
   return (
@@ -51,7 +87,6 @@ const PropertyBuyerActions: React.FC<PropertyBuyerActionsProps> = ({
           <DialogTrigger asChild>
             <Button 
               className="w-full bg-estate-primary hover:bg-estate-primary/90 mb-2"
-              disabled={!isAuthenticated}
             >
               <MessageSquare className="mr-2 h-5 w-5" />
               Make an Offer
@@ -107,17 +142,19 @@ const PropertyBuyerActions: React.FC<PropertyBuyerActionsProps> = ({
           variant="outline" 
           className="w-full"
           onClick={handleBuyNow}
-          disabled={!isAuthenticated}
         >
           <DollarSign className="mr-2 h-5 w-5" />
           Buy Now
         </Button>
         
-        {!isAuthenticated && (
-          <p className="text-sm text-red-500 mt-2">
-            Please <a href="/login" className="underline">login</a> or <a href="/register" className="underline">register</a> to make an offer or purchase.
-          </p>
-        )}
+        <Button 
+          variant="outline" 
+          className="w-full"
+          onClick={handleSaveProperty}
+        >
+          <Heart className="mr-2 h-5 w-5" />
+          Save Property
+        </Button>
       </div>
     </div>
   );

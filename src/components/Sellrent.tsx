@@ -9,9 +9,9 @@ export default function SellRentProperty(): JSX.Element {
       {/* Left Content */}
       <div className="lg:w-1/2 flex flex-col justify-center space-y-4  p-6 rounded-md">
         <span className="bg-gray-800 text-sm px-3 py-1 rounded-md font-semibold self-start">For Property Owners</span>
-        <h2 className="text-3xl font-bold">Sell or Rent your property quickly at Jugyah</h2>
+        <h2 className="text-3xl font-bold">Sell or Rent your property quickly at Real Estate</h2>
         <p className="text-gray-300 pb-10">
-          Easily sell or rent your property with Jugyah. Our platform ensures fast, hassle-free transactions, connecting you with the right buyers or tenants in no time.
+          Easily sell or rent your property with Real Estate. Our platform ensures fast, hassle-free transactions, connecting you with the right buyers or tenants in no time.
         </p>
         <button className="bg-white text-black px-4 py-5 rounded-md font-semibold flex items-center space-x-1 hover:bg-gray-200 transition w-fit">
           <span>List Your Home</span>

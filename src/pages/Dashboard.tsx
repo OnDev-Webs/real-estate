@@ -13,7 +13,6 @@ import {
   Settings,
   LogOut,
   Heart,
-  DollarSign,
   List,
   Activity,
   UserRound,
@@ -29,10 +28,10 @@ import AddPropertyContent from "@/components/dashboard/AddPropertyContent";
 import EditPropertyContent from "@/components/dashboard/EditPropertyContent";
 import MessageContent from "@/components/dashboard/MessageContent";
 import NotificationContent from "@/components/dashboard/NotificationContent";
-import ProfileContent from "@/components/dashboard/ProfileContent";
 import { isAuthenticated } from "@/services/utils/apiHelpers";
-import { getNotifications } from "@/services/notificationService";
+import { getUserNotifications } from "@/services/notificationService";
 import { Badge } from "@/components/ui/badge";
+import ProfileSettings from "@/components/admin/ProfileSettings";
 
 const Dashboard = () => {
   const [searchParams] = useSearchParams();
@@ -42,27 +41,33 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   
-  // Update active tab when URL changes
   useEffect(() => {
     if (tabFromUrl) {
       setActiveTab(tabFromUrl);
     }
   }, [tabFromUrl]);
 
-  // Check if user is authenticated
   useEffect(() => {
-    if (!isAuthenticated() && (activeTab === "add-property" || activeTab === "edit-property")) {
+    if (!isAuthenticated()) {
       navigate('/login');
+      return;
     }
-  }, [activeTab, navigate]);
+    
+    if (user?.role === "admin" && 
+        !activeTab.includes("add-property") && 
+        !activeTab.includes("edit-property")) {
+      navigate('/admin');
+    }
+  }, [user, navigate, activeTab]);
 
-  // Check for unread notifications
   useEffect(() => {
     const checkNotifications = async () => {
       if (!user) return;
       
       try {
-        const notifications = await getNotifications();
+        console.log("Checking for notifications...");
+        const notifications = await getUserNotifications();
+        console.log("Received notifications:", notifications);
         const unreadCount = notifications.filter(notification => !notification.read).length;
         setUnreadNotifications(unreadCount);
       } catch (error) {
@@ -72,21 +77,18 @@ const Dashboard = () => {
     
     checkNotifications();
     
-    // Set up polling for new notifications
     const interval = setInterval(checkNotifications, 60000); // Check every minute
     
     return () => clearInterval(interval);
   }, [user]);
 
-  // Default role to buyer if not authenticated
   const role = user?.role || "buyer";
 
   const renderDashboardContent = () => {
-    // Handle settings, profile, notifications, messages tabs
     if (activeTab === "settings") {
       return <SettingsPanel />;
     } else if (activeTab === "profile") {
-      return <ProfileContent />;
+      return <ProfileSettings />;
     } else if (activeTab === "notifications") {
       return <NotificationContent />;
     } else if (activeTab === "messages") {
@@ -97,7 +99,6 @@ const Dashboard = () => {
       return <EditPropertyContent />;
     }
     
-    // Handle role-specific dashboards
     switch (role) {
       case "buyer":
         return <BuyerDashboard activeTab={activeTab} />;
@@ -114,34 +115,41 @@ const Dashboard = () => {
 
   const handleLogout = () => {
     logout();
+    navigate('/');
   };
 
   const handleTabChange = (tab: string) => {
-    // Check if user needs to be logged in for this tab
     if ((tab === "add-property" || tab === "edit-property") && !isAuthenticated()) {
       navigate('/login');
       return;
     }
     
     setActiveTab(tab);
-    // Update URL with the new tab
     navigate(`/dashboard?tab=${tab}`);
   };
 
+  if (user?.role === "admin" && 
+      activeTab !== "add-property" && 
+      activeTab !== "edit-property") {
+    return null;
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-200 hidden md:block">
         <div className="h-full flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <Link to="/" className="flex items-center space-x-2">
-            <h4 className="text-black">Real estate</h4>
+              <h4 className="text-black">Real estate</h4>
             </Link>
           </div>
           
           <div className="p-4 border-b border-gray-200 ms-3">
             <div className="flex items-center space-x-3 hover:opacity-80 transition-opacity cursor-pointer" onClick={() => handleTabChange("profile")}>
-             
               <div>
                 <h4>Welcome</h4>
                 <h5 className="font-medium">{user?.name || "Guest"}</h5>
@@ -159,20 +167,17 @@ const Dashboard = () => {
               Dashboard
             </Button>
             
-            {(role === "owner" || role === "agent") && (
-              <>
-
-            {/* Add Property button now sets the activeTab instead of navigating */}
-            <Button
-              variant="ghost"
-              className={`w-full justify-start ${activeTab === "add-property" ? "bg-gray-100" : ""}`}
-              onClick={() => handleTabChange("add-property")}
-            >
-              <Plus className="mr-2 h-5 w-5" />
-              Add Property
-            </Button>
-            </>
+            {(role === "owner" || role === "agent" || role === "admin") && (
+              <Button
+                variant="ghost"
+                className={`w-full justify-start ${activeTab === "add-property" ? "bg-gray-100" : ""}`}
+                onClick={() => handleTabChange("add-property")}
+              >
+                <Plus className="mr-2 h-5 w-5" />
+                Add Property
+              </Button>
             )}
+            
             {(role === "buyer" || !user) && (
               <>
                 <Button
@@ -194,18 +199,15 @@ const Dashboard = () => {
               </>
             )}
             
-            {(role === "owner" || role === "agent") && (
-              <>
-                <Button
-                  variant="ghost"
-                  className={`w-full justify-start ${activeTab === "properties" ? "bg-gray-100" : ""}`}
-                  onClick={() => handleTabChange("properties")}
-                >
-                  <Home className="mr-2 h-5 w-5" />
-                  My Properties
-                </Button>
-                
-              </>
+            {(role === "owner" || role === "agent" || role === "admin") && (
+              <Button
+                variant="ghost"
+                className={`w-full justify-start ${activeTab === "properties" ? "bg-gray-100" : ""}`}
+                onClick={() => handleTabChange("properties")}
+              >
+                <Home className="mr-2 h-5 w-5" />
+                My Properties
+              </Button>
             )}
             
             {role === "agent" && (
@@ -219,35 +221,9 @@ const Dashboard = () => {
               </Button>
             )}
             
-            {role === "admin" && (
-              <>
-                <Button
-                  variant="ghost"
-                  className={`w-full justify-start ${activeTab === "users" ? "bg-gray-100" : ""}`}
-                  onClick={() => handleTabChange("users")}
-                >
-                  <Users className="mr-2 h-5 w-5" />
-                  Users
-                </Button>
-                <Button
-                  variant="ghost"
-                  className={`w-full justify-start ${activeTab === "analytics" ? "bg-gray-100" : ""}`}
-                  onClick={() => handleTabChange("analytics")}
-                >
-                  <Activity className="mr-2 h-5 w-5" />
-                  Analytics
-                </Button>
-                <Button
-                  variant="ghost"
-                  className={`w-full justify-start ${activeTab === "admin-portal" ? "bg-gray-100" : ""}`}
-                  onClick={() => handleTabChange("admin-portal")}
-                >
-                  <Shield className="mr-2 h-5 w-5" />
-                  Admin Portal
-                </Button>
-              </>
-            )}
-            
+
+            {(role === "owner" || role === "agent" || role === "admin") && (
+
             <Button
               variant="ghost"
               className={`w-full justify-start ${activeTab === "notifications" ? "bg-gray-100" : ""}`}
@@ -261,6 +237,7 @@ const Dashboard = () => {
                 </Badge>
               )}
             </Button>
+            )}
             
             <Button
               variant="ghost"
@@ -273,34 +250,21 @@ const Dashboard = () => {
           </nav>
           
           <div className="p-4 border-t border-gray-200">
-            {user ? (
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50"
-                onClick={handleLogout}
-              >
-                <LogOut className="mr-2 h-5 w-5" />
-                Sign Out
-              </Button>
-            ) : (
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start"
-                onClick={() => navigate('/login')}
-              >
-                <LogOut className="mr-2 h-5 w-5" />
-                Sign In
-              </Button>
-            )}
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50"
+              onClick={handleLogout}
+            >
+              <LogOut className="mr-2 h-5 w-5" />
+              Sign Out
+            </Button>
           </div>
         </div>
       </aside>
       
-      {/* Main Content */}
       <main className="flex-1">
         <div className="p-6">
           <div className="flex items-center justify-between mb-8">
-            {/* Header content if needed */}
           </div>
           
           {renderDashboardContent()}
